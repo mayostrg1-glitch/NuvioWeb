@@ -2529,7 +2529,15 @@ export const StreamScreen = {
       }
       // onKeyDown already activates the focused TV/D-pad target. Let its
       // keyboard-generated click pass through without activating it twice.
-      if (event.defaultPrevented || Number(event.detail || 0) === 0) {
+      // iOS Safari/PWA fires real taps with detail 0 after back navigation
+      // and re-renders, so detail alone cannot tell a keyboard click from a
+      // touch: keyboard-synthesized clicks carry no pointer coordinates.
+      if (
+        event.defaultPrevented ||
+        (Number(event.detail || 0) === 0 &&
+          Number(event.screenX || 0) === 0 &&
+          Number(event.screenY || 0) === 0)
+      ) {
         return;
       }
       if (clickAction?.kind !== "source" || !(clickAction.element instanceof HTMLElement)) {

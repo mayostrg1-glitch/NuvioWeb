@@ -1765,7 +1765,12 @@ export const DiscoverScreen = {
     this.container.__discoverPointerBound = true;
 
     this.container.addEventListener("click", (event) => {
-      const isKeyboardClick = Number(event?.detail || 0) === 0;
+      // Keyboard-synthesized clicks carry no pointer coordinates; iOS taps
+      // can legitimately report detail 0 after back navigation.
+      const isKeyboardClick =
+        Number(event?.detail || 0) === 0 &&
+        Number(event?.screenX || 0) === 0 &&
+        Number(event?.screenY || 0) === 0;
       const optionNode = event.target?.closest?.(".library-picker-option");
       if (optionNode && this.openPicker) {
         if (isKeyboardClick) {
