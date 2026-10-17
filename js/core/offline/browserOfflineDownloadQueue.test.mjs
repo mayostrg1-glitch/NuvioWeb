@@ -31,7 +31,10 @@ test("download manager only considers actionable download states", () => {
     { downloadId: "recovery", status: "interrupted" },
     { downloadId: "retry", status: "failed" }
   ]);
-  assert.deepEqual(manageable.map((download) => download.downloadId), ["active", "waiting", "later", "recovery", "retry"]);
+  assert.deepEqual(
+    manageable.map((download) => download.downloadId),
+    ["active", "waiting", "later", "recovery", "retry"]
+  );
 });
 
 test("offline queue uses queued time and id as stable fallback ordering", () => {
@@ -54,15 +57,21 @@ test("offline queue reordering changes only queued jobs and normalizes their ord
     { downloadId: "third", status: "queued", queueSequence: 3 }
   ];
   assert.deepEqual(
-    reorderQueuedBrowserOfflineDownloads(downloads, "third", "top").map((download) => download.downloadId),
+    reorderQueuedBrowserOfflineDownloads(downloads, "third", "top").map(
+      (download) => download.downloadId
+    ),
     ["third", "first", "second"]
   );
   assert.deepEqual(
-    reorderQueuedBrowserOfflineDownloads(downloads, "first", "bottom").map((download) => download.downloadId),
+    reorderQueuedBrowserOfflineDownloads(downloads, "first", "bottom").map(
+      (download) => download.downloadId
+    ),
     ["second", "third", "first"]
   );
   assert.deepEqual(
-    reorderQueuedBrowserOfflineDownloads(downloads, "active", "bottom").map((download) => download.downloadId),
+    reorderQueuedBrowserOfflineDownloads(downloads, "active", "bottom").map(
+      (download) => download.downloadId
+    ),
     ["first", "second", "third"]
   );
 });

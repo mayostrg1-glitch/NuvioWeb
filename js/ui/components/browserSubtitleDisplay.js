@@ -19,12 +19,16 @@ export function normalizeSubtitleForDisplay(subtitle = {}) {
   const release = subtitleReleaseName(subtitle);
   const scoreValue = Number(subtitle.match || subtitle.score || subtitle.matchScore);
   const scoreMatch = release.match(/\[(\d{1,3})%\]/);
-  const score = Number.isFinite(scoreValue) && scoreValue >= 0
-    ? `${Math.round(scoreValue > 1 ? scoreValue : scoreValue * 100)}%`
-    : scoreMatch
-      ? `${scoreMatch[1]}%`
-      : "";
-  const flags = [subtitle.forced === true || subtitle.isForced === true ? "Forced" : "", subtitle.sdh === true || subtitle.hearingImpaired === true ? "SDH" : ""].filter(Boolean);
+  const score =
+    Number.isFinite(scoreValue) && scoreValue >= 0
+      ? `${Math.round(scoreValue > 1 ? scoreValue : scoreValue * 100)}%`
+      : scoreMatch
+        ? `${scoreMatch[1]}%`
+        : "";
+  const flags = [
+    subtitle.forced === true || subtitle.isForced === true ? "Forced" : "",
+    subtitle.sdh === true || subtitle.hearingImpaired === true ? "SDH" : ""
+  ].filter(Boolean);
   return {
     language: languageLabel(subtitle.lang || subtitle.language),
     provider: text(subtitle.addonName || subtitle.provider) || "Subtitle addon",

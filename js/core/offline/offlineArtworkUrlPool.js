@@ -19,11 +19,15 @@ export function createOfflineArtworkUrlPool({ getArtwork } = {}) {
       const retained = new Set(keys);
       urls.forEach((url, key) => {
         if (retained.has(key)) return;
-        try { globalThis.URL?.revokeObjectURL?.(url); } catch (_) {}
+        try {
+          globalThis.URL?.revokeObjectURL?.(url);
+        } catch (_) {}
         urls.delete(key);
       });
     },
-    releaseAll() { this.releaseExcept([]); },
+    releaseAll() {
+      this.releaseExcept([]);
+    },
     keyFor
   };
 }

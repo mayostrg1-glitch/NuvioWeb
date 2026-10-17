@@ -3,10 +3,18 @@ import test from "node:test";
 
 const storage = new Map();
 globalThis.localStorage = {
-  getItem(key) { return storage.has(key) ? storage.get(key) : null; },
-  setItem(key, value) { storage.set(key, String(value)); },
-  removeItem(key) { storage.delete(key); },
-  clear() { storage.clear(); }
+  getItem(key) {
+    return storage.has(key) ? storage.get(key) : null;
+  },
+  setItem(key, value) {
+    storage.set(key, String(value));
+  },
+  removeItem(key) {
+    storage.delete(key);
+  },
+  clear() {
+    storage.clear();
+  }
 };
 globalThis.__NUVIO_PLATFORM__ = "browser";
 globalThis.__NUVIO_ENV__ = { TRAKT_CLIENT_ID: "browser-public-client" };
@@ -44,7 +52,10 @@ test("browser device authorization uses only the same-origin bridge", async () =
   try {
     const state = await TraktAuthService.startDeviceAuth();
     assert.equal(state.deviceCode, "browser-device-code");
-    assert.deepEqual(calls.map((call) => call.url), ["/api/trakt/health", "/api/trakt/device/code"]);
+    assert.deepEqual(
+      calls.map((call) => call.url),
+      ["/api/trakt/health", "/api/trakt/device/code"]
+    );
     assert.equal(calls[1].options.body, undefined);
   } finally {
     globalThis.fetch = originalFetch;
@@ -79,7 +90,10 @@ test("browser polling and refresh replace rotating refresh tokens through the br
   try {
     const result = await TraktAuthService.pollDeviceToken();
     assert.equal(result.type, "approved");
-    assert.deepEqual(calls[0], { url: "/api/trakt/device/token", body: { code: "browser-device-code" } });
+    assert.deepEqual(calls[0], {
+      url: "/api/trakt/device/token",
+      body: { code: "browser-device-code" }
+    });
     await TraktAuthService.refreshTokenIfNeeded(true);
     assert.equal(TraktAuthStore.get().accessToken, "access-two");
     assert.equal(TraktAuthStore.get().refreshToken, "refresh-two");
@@ -99,10 +113,7 @@ test("browser bridge unavailability is graceful and does not expose a confidenti
     return json({ configured: false });
   };
   try {
-    await assert.rejects(
-      () => TraktAuthService.startDeviceAuth(),
-      /unavailable on this server/
-    );
+    await assert.rejects(() => TraktAuthService.startDeviceAuth(), /unavailable on this server/);
     assert.equal(TraktAuthService.getBrowserBridgeStatus(), "unavailable");
   } finally {
     globalThis.fetch = originalFetch;
@@ -117,7 +128,9 @@ test("a multi-day token stays valid after one day without refreshing through the
     created_at: Math.floor(Date.now() / 1000) - 2 * 86400,
     expires_in: 604800
   });
-  t.mock.method(globalThis, "fetch", async () => assert.fail("An unexpired token must not refresh"));
+  t.mock.method(globalThis, "fetch", async () =>
+    assert.fail("An unexpired token must not refresh")
+  );
   assert.equal(TraktAuthStore.get().expiresIn, 604800);
   assert.equal(await TraktAuthService.getValidAccessToken(), "still-valid");
 });
@@ -126,7 +139,8 @@ test("credential push and pull preserve the provider lifetime, including an actu
   storage.clear();
   const { AuthManager } = await import("../../core/auth/authManager.js");
   const { SupabaseApi } = await import("../remote/supabase/supabaseApi.js");
-  const { TraktCredentialSyncService } = await import("../../core/profile/traktCredentialSyncService.js");
+  const { TraktCredentialSyncService } =
+    await import("../../core/profile/traktCredentialSyncService.js");
   const originalAuth = Object.getOwnPropertyDescriptor(AuthManager, "isAuthenticated");
   Object.defineProperty(AuthManager, "isAuthenticated", { get: () => true, configurable: true });
   t.after(() => {
@@ -143,7 +157,10 @@ test("credential push and pull preserve the provider lifetime, including an actu
     return [{ provider: "trakt", credential_json: remoteCredential }];
   });
   for (const expiresIn of [3600, 86400, 604800, 1209600]) {
-    TraktAuthStore.saveToken({ access_token: "access", refresh_token: "refresh", expires_in: expiresIn }, 1);
+    TraktAuthStore.saveToken(
+      { access_token: "access", refresh_token: "refresh", expires_in: expiresIn },
+      1
+    );
     assert.equal(await TraktCredentialSyncService.pushCurrentToRemote(1), true);
     assert.equal(remoteCredential.expires_in, expiresIn);
     TraktAuthStore.clearAuth(1);

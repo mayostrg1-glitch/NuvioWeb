@@ -490,7 +490,7 @@ async function collectLocaleAssets(directory, relativeDirectory = "") {
     const relativePath = path.posix.join(relativeDirectory, entry.name);
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      assets.push(...await collectLocaleAssets(absolutePath, relativePath));
+      assets.push(...(await collectLocaleAssets(absolutePath, relativePath)));
     } else if (entry.isFile() && /^(?:strings|string)\.xml$/i.test(entry.name)) {
       assets.push(`./res/${relativePath}`);
     }
@@ -528,7 +528,10 @@ async function runBuild() {
       cp(path.join(rootDir, "assets"), path.join(distDir, "assets"), { recursive: true }),
       cp(path.join(rootDir, "res"), path.join(distDir, "res"), { recursive: true }),
       cp(path.join(rootDir, "boot-guard.js"), path.join(distDir, "boot-guard.js")),
-      cp(path.join(rootDir, "docs", "youtube-proxy.html"), path.join(distDir, "youtube-proxy.html")),
+      cp(
+        path.join(rootDir, "docs", "youtube-proxy.html"),
+        path.join(distDir, "youtube-proxy.html")
+      ),
       cp(path.join(rootDir, "manifest.webmanifest"), path.join(distDir, "manifest.webmanifest"))
     ]);
     await buildCoreJsBundle();

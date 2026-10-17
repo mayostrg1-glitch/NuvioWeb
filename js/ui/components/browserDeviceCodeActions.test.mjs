@@ -68,8 +68,14 @@ test("rejects arbitrary, insecure, and mismatched verification links without nav
   const open = (...args) => calls.push(args);
 
   assert.equal(openDeviceAuthorizationLink("torbox", "http://tor.box/device", { open }), false);
-  assert.equal(openDeviceAuthorizationLink("torbox", "https://evil.example/device", { open }), false);
-  assert.equal(openDeviceAuthorizationLink("torbox", "https://tor.box:444/device", { open }), false);
+  assert.equal(
+    openDeviceAuthorizationLink("torbox", "https://evil.example/device", { open }),
+    false
+  );
+  assert.equal(
+    openDeviceAuthorizationLink("torbox", "https://tor.box:444/device", { open }),
+    false
+  );
   assert.equal(
     openDeviceAuthorizationLink("premiumize", "https://premiumize.me/device", { open }),
     false

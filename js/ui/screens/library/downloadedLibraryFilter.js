@@ -5,9 +5,7 @@ export const DOWNLOADED_LIBRARY_TYPE_OPTIONS = Object.freeze([
 ]);
 
 export function normalizeDownloadedLibraryType(value) {
-  return DOWNLOADED_LIBRARY_TYPE_OPTIONS.some((option) => option.value === value)
-    ? value
-    : "all";
+  return DOWNLOADED_LIBRARY_TYPE_OPTIONS.some((option) => option.value === value) ? value : "all";
 }
 
 export function filterDownloadedLibraryItems(type, movies = [], series = []) {

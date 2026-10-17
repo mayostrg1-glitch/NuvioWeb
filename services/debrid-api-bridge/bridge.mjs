@@ -71,7 +71,11 @@ function nonEmptyString(value) {
 function normalizedStringArray(value, limit = 100) {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => String(entry || "").trim().toLowerCase())
+    .map((entry) =>
+      String(entry || "")
+        .trim()
+        .toLowerCase()
+    )
     .filter(Boolean)
     .slice(0, limit);
 }
@@ -209,12 +213,20 @@ async function handleDeviceStart(providerId, response, fetchImpl, body, timeoutM
   if (!nonEmptyString(body.clientId)) {
     return bridgeFailure(response, 400, "missing_public_client_id");
   }
-  const form = new URLSearchParams({ response_type: "device_code", client_id: body.clientId.trim() });
-  const result = await providerRequest(fetchImpl, `${PROVIDERS.premiumize}/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-    body: form.toString()
-  }, timeoutMs);
+  const form = new URLSearchParams({
+    response_type: "device_code",
+    client_id: body.clientId.trim()
+  });
+  const result = await providerRequest(
+    fetchImpl,
+    `${PROVIDERS.premiumize}/token`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: form.toString()
+    },
+    timeoutMs
+  );
   if (result.status < 200 || result.status >= 300 || result.data?.error) {
     return bridgeFailure(response, result.status);
   }
@@ -227,11 +239,16 @@ async function handleDeviceRedeem(providerId, response, fetchImpl, body, timeout
   }
   let result;
   if (providerId === "torbox") {
-    result = await providerRequest(fetchImpl, `${PROVIDERS.torbox}/v1/api/user/auth/device/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_code: body.deviceCode.trim() })
-    }, timeoutMs);
+    result = await providerRequest(
+      fetchImpl,
+      `${PROVIDERS.torbox}/v1/api/user/auth/device/token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_code: body.deviceCode.trim() })
+      },
+      timeoutMs
+    );
   } else {
     if (!nonEmptyString(body.clientId)) {
       return bridgeFailure(response, 400, "missing_public_client_id");
@@ -241,13 +258,19 @@ async function handleDeviceRedeem(providerId, response, fetchImpl, body, timeout
       code: body.deviceCode.trim(),
       client_id: body.clientId.trim()
     });
-    result = await providerRequest(fetchImpl, `${PROVIDERS.premiumize}/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body: form.toString()
-    }, timeoutMs);
+    result = await providerRequest(
+      fetchImpl,
+      `${PROVIDERS.premiumize}/token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: form.toString()
+      },
+      timeoutMs
+    );
   }
-  const token = providerId === "torbox" ? result.data?.data?.access_token : result.data?.access_token;
+  const token =
+    providerId === "torbox" ? result.data?.data?.access_token : result.data?.access_token;
   if (result.status >= 200 && result.status < 300 && token) {
     json(response, 200, tokenPayload(providerId, result.data));
     return;
@@ -261,10 +284,19 @@ async function handleAccount(providerId, request, response, fetchImpl, timeoutMs
     return bridgeFailure(response, 401, "missing_provider_credential");
   }
   const path = providerId === "torbox" ? "/v1/api/user/me" : "/api/account/info";
-  const result = await providerRequest(fetchImpl, `${PROVIDERS[providerId]}${path}`, {
-    headers: { Authorization: `Bearer ${credential}` }
-  }, timeoutMs);
-  if (result.status < 200 || result.status >= 300 || String(result.data?.status || "").toLowerCase() === "error") {
+  const result = await providerRequest(
+    fetchImpl,
+    `${PROVIDERS[providerId]}${path}`,
+    {
+      headers: { Authorization: `Bearer ${credential}` }
+    },
+    timeoutMs
+  );
+  if (
+    result.status < 200 ||
+    result.status >= 300 ||
+    String(result.data?.status || "").toLowerCase() === "error"
+  ) {
     return bridgeFailure(response, result.status);
   }
   json(response, 200, { ok: true });
@@ -309,7 +341,8 @@ async function handleTorboxPlaybackAction(action, request, response, fetchImpl, 
       redirect: "false",
       append_name: "false"
     });
-    if (body.fileId != null && String(body.fileId).trim()) query.set("file_id", String(body.fileId).trim());
+    if (body.fileId != null && String(body.fileId).trim())
+      query.set("file_id", String(body.fileId).trim());
     endpoint = `${PROVIDERS.torbox}/v1/api/torrents/requestdl?${query.toString()}`;
     options = { ...options, method: "GET" };
   } else {
@@ -326,15 +359,17 @@ async function handleTorboxPlaybackAction(action, request, response, fetchImpl, 
 
 export function createDebridApiBridgeHandler({
   fetchImpl = fetch,
-  requestTimeoutMs = REQUEST_TIMEOUT_MS
+  requestTimeoutMs = REQUEST_TIMEOUT_MS,
+  revision = null
 } = {}) {
   return async function handleDebridApiBridge(request, response) {
     const url = new URL(request.url || "/", "http://bridge.local");
-    const match = /^\/api\/debrid\/(torbox|premiumize)\/(device\/start|device\/redeem|account|cache\/check|torrent\/create|torrent\/lookup|link\/resolve)$/.exec(
-      url.pathname
-    );
+    const match =
+      /^\/api\/debrid\/(torbox|premiumize)\/(device\/start|device\/redeem|account|cache\/check|torrent\/create|torrent\/lookup|link\/resolve)$/.exec(
+        url.pathname
+      );
     if (url.pathname === "/api/debrid/health" && request.method === "GET") {
-      json(response, 200, { ok: true });
+      json(response, 200, { ok: true, ...(revision ? { revision } : {}) });
       return;
     }
     if (!match) {
@@ -345,7 +380,10 @@ export function createDebridApiBridgeHandler({
     const isTorboxPlaybackAction =
       providerId === "torbox" &&
       ["cache/check", "torrent/create", "torrent/lookup", "link/resolve"].includes(action);
-    if (["cache/check", "torrent/create", "torrent/lookup", "link/resolve"].includes(action) && !isTorboxPlaybackAction) {
+    if (
+      ["cache/check", "torrent/create", "torrent/lookup", "link/resolve"].includes(action) &&
+      !isTorboxPlaybackAction
+    ) {
       bridgeFailure(response, 404, "not_found");
       return;
     }

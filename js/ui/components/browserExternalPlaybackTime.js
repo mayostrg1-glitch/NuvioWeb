@@ -10,8 +10,10 @@ export function parseExternalPlaybackPositionParts(hours, minutes, seconds, dura
 
 export function validateExternalPlaybackPositionParts(hours, minutes, seconds, durationMs = 0) {
   const positionMs = parseExternalPlaybackPositionParts(hours, minutes, seconds, durationMs);
-  if (positionMs == null) return { valid: false, positionMs: 0, message: "Enter a valid position within the runtime." };
-  if (positionMs <= 0) return { valid: false, positionMs, message: "Enter a playback position greater than zero." };
+  if (positionMs == null)
+    return { valid: false, positionMs: 0, message: "Enter a valid position within the runtime." };
+  if (positionMs <= 0)
+    return { valid: false, positionMs, message: "Enter a playback position greater than zero." };
   return { valid: true, positionMs, message: "" };
 }
 

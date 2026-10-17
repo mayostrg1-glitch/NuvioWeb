@@ -42,6 +42,9 @@ export function setBrowserVerticalScrollTop(value = 0, routeContainer = null) {
   if (!owner) {
     return;
   }
-  const maxScrollTop = Math.max(0, Number(owner.scrollHeight || 0) - Number(owner.clientHeight || 0));
+  const maxScrollTop = Math.max(
+    0,
+    Number(owner.scrollHeight || 0) - Number(owner.clientHeight || 0)
+  );
   owner.scrollTop = Math.max(0, Math.min(maxScrollTop, Number(value || 0)));
 }

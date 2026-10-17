@@ -5,7 +5,9 @@ function text(value) {
 }
 
 function safeIdentityPart(value) {
-  return text(value).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return text(value)
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function stableHash(value) {
@@ -34,7 +36,9 @@ function safeSubtitleProviderId(value) {
 }
 
 function normalizedSubtitleFilename(track = {}) {
-  return text(track.fileName || track.filename).toLowerCase().replace(/\s+/g, " ");
+  return text(track.fileName || track.filename)
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 }
 
 export function getOfflineSubtitleIdentityParts(track = {}) {
@@ -68,10 +72,12 @@ export function offlineSubtitleExtension(track = {}) {
 // currently provide. Keep this check shared by download persistence and local
 // playback so an unreadable response can never be recorded as completed.
 export function detectOfflineSubtitleFormat(content = "") {
-  const value = String(content || "").replace(/^\uFEFF/, "").trim();
+  const value = String(content || "")
+    .replace(/^\uFEFF/, "")
+    .trim();
   if (/^WEBVTT(?:\s|$)/i.test(value)) return "vtt";
   if (/\b\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->/m.test(value)) return "srt";
-  if (/^\s*\[Script Info\]/mi.test(value) && /^\s*Dialogue\s*:/mi.test(value)) {
+  if (/^\s*\[Script Info\]/im.test(value) && /^\s*Dialogue\s*:/im.test(value)) {
     return "ass";
   }
   return "";
@@ -111,7 +117,9 @@ export function createOfflineSubtitleFingerprint(track = {}) {
 
 export function createOfflineSubtitleId(input = {}) {
   const mediaIdentity = text(input.mediaIdentity || createOfflineMediaId(input));
-  const fingerprint = text(input.fingerprint || createOfflineSubtitleFingerprint(input.track || input));
+  const fingerprint = text(
+    input.fingerprint || createOfflineSubtitleFingerprint(input.track || input)
+  );
   return mediaIdentity && fingerprint
     ? `subtitle-${safeIdentityPart(mediaIdentity)}-${stableHash(fingerprint)}`
     : "";

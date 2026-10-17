@@ -10,11 +10,15 @@ test("update checks use the fork release endpoint and compare fork versions", as
       requestedUrl = url;
       return {
         ok: true,
-        json: async () => ({ tag_name: "v0.1.1", name: "0.1.1", html_url: "https://example.test/release" })
+        json: async () => ({
+          tag_name: "v0.1.1",
+          name: "0.1.1",
+          html_url: "https://example.test/release"
+        })
       };
     }
   });
 
-  assert.equal(requestedUrl, "https://api.github.com/repos/alphasquare404/NuvioWeb/releases/latest");
+  assert.equal(requestedUrl, "https://api.github.com/repos/falcononrails/NuvioWeb/releases/latest");
   assert.equal(update?.tag, "v0.1.1");
 });

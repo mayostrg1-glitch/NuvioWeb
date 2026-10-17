@@ -233,10 +233,17 @@ export function createProfileScopedStore({
       return this.getForProfile(normalizeProfileId());
     },
 
-    replaceForProfile(profileId, nextValue, { silentSync = false, syncSource = "user", mutation } = {}) {
+    replaceForProfile(
+      profileId,
+      nextValue,
+      { silentSync = false, syncSource = "user", mutation } = {}
+    ) {
       const envelope = readEnvelope(key, normalize, { legacyMigration });
       const normalizedProfileId = normalizeProfileId(profileId);
-      const previousValue = Object.prototype.hasOwnProperty.call(envelope.profiles, normalizedProfileId)
+      const previousValue = Object.prototype.hasOwnProperty.call(
+        envelope.profiles,
+        normalizedProfileId
+      )
         ? cloneValue(envelope.profiles[normalizedProfileId])
         : normalize({});
       const value = normalize(cloneValue(nextValue) || {});
@@ -275,7 +282,10 @@ export function createProfileScopedStore({
     clearProfile(profileId, { silentSync = false, syncSource = "user" } = {}) {
       const envelope = readEnvelope(key, normalize, { legacyMigration });
       const normalizedProfileId = normalizeProfileId(profileId);
-      const previousValue = Object.prototype.hasOwnProperty.call(envelope.profiles, normalizedProfileId)
+      const previousValue = Object.prototype.hasOwnProperty.call(
+        envelope.profiles,
+        normalizedProfileId
+      )
         ? cloneValue(envelope.profiles[normalizedProfileId])
         : null;
       delete envelope.profiles[normalizedProfileId];

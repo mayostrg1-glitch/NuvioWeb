@@ -15,7 +15,10 @@ test("nested download icon click routes once to Download Options instead of play
   const download = { dataset: { offlineAction: "download", streamId: "movie-stream" } };
   const card = { dataset: { action: "playStream" } };
   assert.deepEqual(
-    resolveBrowserStreamCardClickAction(targetFor({ offline: download, source: card }), (node) => node === download || node === card),
+    resolveBrowserStreamCardClickAction(
+      targetFor({ offline: download, source: card }),
+      (node) => node === download || node === card
+    ),
     { kind: "offline", action: "download", streamId: "movie-stream" }
   );
 });
@@ -32,7 +35,10 @@ test("download routing is independent of external player preference and media ki
   for (const player of ["disabled", "infuse", "vlc"]) {
     for (const streamId of ["movie-stream", "episode-stream"]) {
       const download = { dataset: { offlineAction: "download", streamId } };
-      const route = resolveBrowserStreamCardClickAction(targetFor({ offline: download }), (node) => node === download);
+      const route = resolveBrowserStreamCardClickAction(
+        targetFor({ offline: download }),
+        (node) => node === download
+      );
       assert.equal(route?.kind, "offline", `${player} must not change download routing`);
       assert.equal(route?.action, "download");
       assert.equal(route?.streamId, streamId);
@@ -42,5 +48,8 @@ test("download routing is independent of external player preference and media ki
 
 test("a download action outside the stream container is ignored", () => {
   const download = { dataset: { offlineAction: "download", streamId: "movie-stream" } };
-  assert.equal(resolveBrowserStreamCardClickAction(targetFor({ offline: download }), () => false), null);
+  assert.equal(
+    resolveBrowserStreamCardClickAction(targetFor({ offline: download }), () => false),
+    null
+  );
 });

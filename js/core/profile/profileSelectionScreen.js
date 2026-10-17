@@ -61,7 +61,8 @@ const PROFILE_PIN_TEXT = {
   removed: (name) => `PIN lock removed for ${name}.`,
   saveFailed: "Could not save PIN. Try again.",
   verifyFailed: "Could not verify PIN. Try again.",
-  verifyOffline: "This profile is locked and needs a connection to unlock. Reconnect and try again.",
+  verifyOffline:
+    "This profile is locked and needs a connection to unlock. Reconnect and try again.",
   pinNeedsConnection: "PIN changes need a connection.",
   invalidPin: "Invalid PIN. Try again.",
   incorrectCurrent: "Current PIN is incorrect.",
@@ -491,8 +492,12 @@ export const ProfileSelectionScreen = {
     const next = new Map();
     await Promise.all(
       (this.profiles || []).map(async (profile) => {
-        const source = resolveProfileAvatarUrl(profile, (avatarId) => this.getAvatarImageUrl(avatarId));
-        const url = await resolveBrowserProfileAvatar(profile, source, { allowNetwork }).catch(() => "");
+        const source = resolveProfileAvatarUrl(profile, (avatarId) =>
+          this.getAvatarImageUrl(avatarId)
+        );
+        const url = await resolveBrowserProfileAvatar(profile, source, { allowNetwork }).catch(
+          () => ""
+        );
         if (url) next.set(String(profile.id), url);
       })
     );
@@ -587,21 +592,25 @@ export const ProfileSelectionScreen = {
 
     this.bindEvents();
     if (isDesktopBrowser) {
-      this.container.querySelector("[data-action='open-management']")?.addEventListener("click", () => {
-        void Router.navigate("profileSelection", {
-          mode: "management",
-          returnRoute: "profileSelection"
+      this.container
+        .querySelector("[data-action='open-management']")
+        ?.addEventListener("click", () => {
+          void Router.navigate("profileSelection", {
+            mode: "management",
+            returnRoute: "profileSelection"
+          });
         });
-      });
       this.container.querySelector("[data-action='add-profile']")?.addEventListener("click", () => {
         this.openCreateEditor();
       });
       this.container.querySelector("[data-action='sign-out']")?.addEventListener("click", () => {
         void this.signOutFromProfiles();
       });
-      this.container.querySelector("[data-action='close-management']")?.addEventListener("click", () => {
-        void Router.back();
-      });
+      this.container
+        .querySelector("[data-action='close-management']")
+        ?.addEventListener("click", () => {
+          void Router.back();
+        });
     }
     if (renderedPinState) {
       const pinProfile = this.getPinOverlayProfile();
@@ -612,7 +621,8 @@ export const ProfileSelectionScreen = {
       // The tint follows whichever profile has focus, and on a remote one
       // always does. A pointer starts with none, which left the screen flat
       // until something was touched.
-      const activeProfile = this.getProfileById(this.activeProfileId) || this.getVisibleProfiles()[0];
+      const activeProfile =
+        this.getProfileById(this.activeProfileId) || this.getVisibleProfiles()[0];
       if (activeProfile) {
         this.updateBackground(activeProfile.avatarColorHex || getDefaultProfileColor());
       }
@@ -634,11 +644,8 @@ export const ProfileSelectionScreen = {
   },
 
   renderProfileCard(profile) {
-    const avatarUrl =
-      this.browserAvatarUrls?.get(String(profile.id)) ||
-      "";
-    const isDesktopActive =
-      String(profile.id) === String(this.activeProfileId);
+    const avatarUrl = this.browserAvatarUrls?.get(String(profile.id)) || "";
+    const isDesktopActive = String(profile.id) === String(this.activeProfileId);
     return `
       <div class="profile-card profile-focusable focusable${isDesktopActive ? " is-active-profile" : ""}"
            data-profile-id="${escapeHtml(profile.id)}"

@@ -30,7 +30,10 @@ class GestureTestElement {
   }
 
   removeEventListener(type, listener) {
-    this.listeners.set(type, (this.listeners.get(type) || []).filter((entry) => entry !== listener));
+    this.listeners.set(
+      type,
+      (this.listeners.get(type) || []).filter((entry) => entry !== listener)
+    );
   }
 
   dispatch(type, event) {
@@ -46,12 +49,10 @@ class GestureTestElement {
   releasePointerCapture() {}
 }
 
-function createGestureEvent(target, {
-  pointerId = 1,
-  pointerType = "touch",
-  clientX = 200,
-  clientY = 100
-} = {}) {
+function createGestureEvent(
+  target,
+  { pointerId = 1, pointerType = "touch", clientX = 200, clientY = 100 } = {}
+) {
   return {
     target,
     pointerId,
@@ -152,8 +153,18 @@ test("gesture timing constants keep touch interaction deliberate", () => {
 });
 
 test("movement tolerance distinguishes a hold from a drag", () => {
-  assert.equal(isWithinGestureTolerance({ x: 0, y: 0 }, { x: 8, y: 8 }, PLAYER_GESTURE_HOLD_MOVE_TOLERANCE_PX), true);
-  assert.equal(isWithinGestureTolerance({ x: 0, y: 0 }, { x: 13, y: 0 }, PLAYER_GESTURE_HOLD_MOVE_TOLERANCE_PX), false);
+  assert.equal(
+    isWithinGestureTolerance({ x: 0, y: 0 }, { x: 8, y: 8 }, PLAYER_GESTURE_HOLD_MOVE_TOLERANCE_PX),
+    true
+  );
+  assert.equal(
+    isWithinGestureTolerance(
+      { x: 0, y: 0 },
+      { x: 13, y: 0 },
+      PLAYER_GESTURE_HOLD_MOVE_TOLERANCE_PX
+    ),
+    false
+  );
 });
 
 test("only touch, pen, and primary mouse input are gesture candidates", () => {

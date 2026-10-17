@@ -32,24 +32,31 @@ async function loadProfileSelectionScreen() {
           }));
           buildApi.onLoad({ filter: /.*/, namespace: "test" }, (args) => {
             if (args.path === "profile-manager") {
-              return { contents: `export const MAX_PROFILES = 5; export const ProfileManager = { getProfiles: async () => [{ id: "1", name: "Primary" }], getActiveProfileId: () => "1" };` };
+              return {
+                contents: `export const MAX_PROFILES = 5; export const ProfileManager = { getProfiles: async () => [{ id: "1", name: "Primary" }], getActiveProfileId: () => "1" };`
+              };
             }
             if (args.path === "router") {
-              return { contents: `export const Router = { getCurrentScreen: () => null, navigate: async () => {}, back: () => {} };` };
+              return {
+                contents: `export const Router = { getCurrentScreen: () => null, navigate: async () => {}, back: () => {} };`
+              };
             }
             if (args.path === "profile-sync-service") {
               return {
-                contents:
-                  `export const ProfileSyncService = new Proxy({}, { get: (_, key) => globalThis.__profileSyncService?.[key] });`
+                contents: `export const ProfileSyncService = new Proxy({}, { get: (_, key) => globalThis.__profileSyncService?.[key] });`
               };
             }
-            return { contents: `export const removeBrowserProfileAvatar = async () => {}; export const resolveBrowserProfileAvatar = async () => "";` };
+            return {
+              contents: `export const removeBrowserProfileAvatar = async () => {}; export const resolveBrowserProfileAvatar = async () => "";`
+            };
           });
         }
       }
     ]
   });
-  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`);
+  return import(
+    `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`
+  );
 }
 
 test("ProfileSelectionScreen mounts in the browser without a Platform global", async () => {

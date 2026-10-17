@@ -21,7 +21,10 @@ test("standard Picture-in-Picture stays available in a standalone PWA when the a
   const standalonePwaRuntime = { navigator: { standalone: true } };
 
   assert.equal(standalonePwaRuntime.navigator.standalone, true);
-  assert.equal(getBrowserPictureInPictureCapability(video, documentRef), BROWSER_PICTURE_IN_PICTURE_STANDARD);
+  assert.equal(
+    getBrowserPictureInPictureCapability(video, documentRef),
+    BROWSER_PICTURE_IN_PICTURE_STANDARD
+  );
 });
 
 test("Picture-in-Picture support is unavailable when the active video exposes no usable API", () => {
@@ -36,7 +39,10 @@ test("WebKit presentation mode is used only when standard Picture-in-Picture is 
   };
   const documentRef = { pictureInPictureEnabled: false };
 
-  assert.equal(getBrowserPictureInPictureCapability(video, documentRef), BROWSER_PICTURE_IN_PICTURE_WEBKIT);
+  assert.equal(
+    getBrowserPictureInPictureCapability(video, documentRef),
+    BROWSER_PICTURE_IN_PICTURE_WEBKIT
+  );
   assert.equal(isBrowserPictureInPictureActive(video, documentRef), false);
   video.webkitPresentationMode = "picture-in-picture";
   assert.equal(isBrowserPictureInPictureActive(video, documentRef), true);
@@ -75,10 +81,15 @@ test("standard PiP enters through the active video and exits through the documen
 });
 
 test("PiP entry failures propagate for the Player to handle without changing playback state", async () => {
-  const video = { requestPictureInPicture: async () => Promise.reject(new DOMException("Denied", "NotAllowedError")) };
+  const video = {
+    requestPictureInPicture: async () =>
+      Promise.reject(new DOMException("Denied", "NotAllowedError"))
+  };
   const documentRef = { pictureInPictureEnabled: true, exitPictureInPicture() {} };
 
-  await assert.rejects(() => enterBrowserPictureInPicture(video, documentRef), { name: "NotAllowedError" });
+  await assert.rejects(() => enterBrowserPictureInPicture(video, documentRef), {
+    name: "NotAllowedError"
+  });
 });
 
 test("only NotSupportedError suppresses PiP for the current video session", () => {

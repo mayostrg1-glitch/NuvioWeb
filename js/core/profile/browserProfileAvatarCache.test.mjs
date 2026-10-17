@@ -41,9 +41,17 @@ test("profile avatar cache reuses a durable image on an offline cold start", asy
       return new Response(new Blob(["avatar"], { type: "image/png" }), { status: 200 });
     });
 
-    const { resolveBrowserProfileAvatar } = await import(`./browserProfileAvatarCache.js?test=${Date.now()}`);
+    const { resolveBrowserProfileAvatar } = await import(
+      `./browserProfileAvatarCache.js?test=${Date.now()}`
+    );
     const profile = { id: "2", avatarId: "anime-1" };
-    assert.equal(await resolveBrowserProfileAvatar(profile, "https://cdn.nuvio.test/avatars/a.png?temporary=1"), "blob:avatar/6");
+    assert.equal(
+      await resolveBrowserProfileAvatar(
+        profile,
+        "https://cdn.nuvio.test/avatars/a.png?temporary=1"
+      ),
+      "blob:avatar/6"
+    );
     assert.equal(fetches, 1);
 
     globalThis.navigator.onLine = false;

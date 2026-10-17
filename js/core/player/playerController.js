@@ -9,6 +9,15 @@ import { hlsJsEngine } from "./engines/hlsJsEngine.js";
 import { dashJsEngine } from "./engines/dashJsEngine.js";
 import { isTerminalHlsHttpStatus } from "./hlsNetworkErrorPolicy.js";
 import { loadStreamingLibs } from "../../runtime/loadStreamingLibs.js";
+import {
+  requestCompatibilityPlayback,
+  closeCompatibilityPlayback
+} from "./compatibilityPlayback.js";
+import {
+  LocalAudioEngine,
+  supportsLocalAudio,
+  unlockLocalAudio
+} from "./engines/localAudioEngine.js";
 
 const MIN_PROGRESS_SYNC_DURATION_MS = 1000;
 const HLS_TRANSIENT_LEVEL_404_RETRY_LIMIT = 2;
@@ -47,6 +56,244 @@ export const PlayerController = {
   videoElementListeners: [],
   markPlaybackWatched,
   externalProgressHandoff: null,
+  compatibility: null,
+  compatibilityTimer: null,
+  compatibilitySeeking: false,
+  compatibilityPendingPosition: null,
+  audioInspection: null,
+  localAudio: null,
+  localAudioAttemptToken: null,
+  screenWakeLock: null,
+  screenWakeLockPending: false,
+
+  async updateScreenWakeLock() {
+    const playing = this.video && !this.video.paused && !this.video.ended && !this.video.error;
+    if (!playing || globalThis.document?.visibilityState !== "visible") {
+      const lock = this.screenWakeLock;
+      this.screenWakeLock = null;
+      await lock?.release().catch(() => {});
+      return;
+    }
+    if (
+      (this.screenWakeLock && !this.screenWakeLock.released) ||
+      this.screenWakeLockPending ||
+      !globalThis.navigator?.wakeLock
+    )
+      return;
+    this.screenWakeLockPending = true;
+    try {
+      this.screenWakeLock = await navigator.wakeLock.request("screen");
+      // Playback may have paused or the tab may have hidden while permission settled.
+      await this.updateScreenWakeLock();
+    } catch {
+      /* Wake locks are optional; a denied request must not interrupt playback. */
+    } finally {
+      this.screenWakeLockPending = false;
+    }
+  },
+
+  inspectBrowserAudioTracks() {
+    const playToken = this.playRequestToken;
+    if (this.audioInspection?.playToken === playToken) return this.audioInspection.promise;
+    const inspection = { playToken, pending: true, tracks: [], error: "" };
+    this.audioInspection = inspection;
+    inspection.promise = requestCompatibilityPlayback("", {
+      url: this.currentPlaybackUrl,
+      headers: this.currentPlaybackHeaders,
+      inspect: true
+    })
+      .then((result) => Object.assign(inspection, result))
+      .catch((error) => {
+        inspection.error = error.message;
+      })
+      .finally(() => {
+        inspection.pending = false;
+      });
+    return inspection.promise;
+  },
+
+  canUseLocalAudioPlayback() {
+    return supportsLocalAudio() && this.playbackEngine === "native-file";
+  },
+
+  getEmbeddedSubtitleTracks() {
+    if (this.compatibility) return this.compatibility.subtitles || [];
+    if (this.localAudio?.loaded) return this.localAudio.subtitleTracks;
+    return this.audioInspection?.playToken === this.playRequestToken
+      ? this.audioInspection.subtitles || []
+      : [];
+  },
+
+  readEmbeddedSubtitles(subtitle, position) {
+    const playToken = this.playRequestToken;
+    // Rapid track changes share the service's one-extraction-per-account limit.
+    return (this.embeddedSubtitleRequest = (this.embeddedSubtitleRequest || Promise.resolve())
+      .catch(() => {})
+      .then(() => {
+        if (this.playRequestToken !== playToken) throw new Error("Playback was stopped.");
+        if (this.compatibility)
+          return requestCompatibilityPlayback(`/${this.compatibility.id}/subtitles`, {
+            subtitle,
+            position
+          });
+        return requestCompatibilityPlayback("", {
+          url: this.currentPlaybackUrl,
+          headers: this.currentPlaybackHeaders,
+          subtitle,
+          position
+        });
+      }));
+  },
+
+  stopLocalAudioPlayback() {
+    const engine = this.localAudio;
+    this.localAudio = null;
+    return engine?.destroy().catch(() => {});
+  },
+
+  async enableCompatibilityPlayback(
+    position = this.getCurrentTimeSeconds(),
+    { track = null, preferredLanguages = [], serverOnly = false } = {}
+  ) {
+    if (this.compatibility) return;
+    const playToken = this.playRequestToken;
+    this.video?.pause();
+    if (
+      !serverOnly &&
+      this.localAudioAttemptToken !== playToken &&
+      this.canUseLocalAudioPlayback()
+    ) {
+      this.localAudioAttemptToken = playToken;
+      const local = new LocalAudioEngine(this.video, (event) => {
+        if (this.localAudio === local && playToken === this.playRequestToken)
+          this.emitVideoEvent(event);
+      });
+      this.localAudio = local;
+      this.teardownAdaptiveInstances();
+      this.video.removeAttribute("src");
+      Array.from(this.video.querySelectorAll("source")).forEach((node) => node.remove());
+      this.video.load();
+      try {
+        await local.start(this.currentPlaybackUrl, {
+          headers: this.currentPlaybackHeaders,
+          position,
+          track,
+          preferredLanguages
+        });
+        if (playToken !== this.playRequestToken) return;
+        if (local.failed) throw new Error("Local audio playback failed.");
+        this.playbackEngine = "avplayer";
+        await this.setPlaybackRate(this.desiredPlaybackRate);
+        this.lastPlaybackErrorCode = 0;
+        this.emitVideoEvent("audiotrackschanged");
+        return;
+      } catch {
+        // A decoder or CORS failure falls through once to the existing server path.
+        if (this.localAudio === local) await this.stopLocalAudioPlayback();
+      }
+    }
+    if (playToken !== this.playRequestToken) return;
+    await this.stopLocalAudioPlayback();
+    if (playToken !== this.playRequestToken) return;
+    // Finish an in-flight probe before reserving its replacement conversion slot.
+    await this.audioInspection?.promise;
+    if (playToken !== this.playRequestToken) return;
+    const session = await requestCompatibilityPlayback("", {
+      url: this.currentPlaybackUrl,
+      headers: this.currentPlaybackHeaders,
+      position,
+      track,
+      preferredLanguages,
+      hevc: Boolean(this.video?.canPlayType?.('video/mp4; codecs="hvc1.1.6.L93.B0"'))
+    });
+    if (playToken !== this.playRequestToken) {
+      closeCompatibilityPlayback(session.id);
+      return;
+    }
+    try {
+      await this.loadCompatibilityPlayback(session);
+    } catch (error) {
+      this.stopCompatibilityPlayback();
+      throw error;
+    }
+    this.compatibilityTimer = setInterval(async () => {
+      try {
+        await requestCompatibilityPlayback(`/${session.id}/heartbeat`);
+      } catch (error) {
+        if (this.compatibility?.id !== session.id) return;
+        clearInterval(this.compatibilityTimer);
+        this.emitVideoEvent("compatibilityerror", { message: error.message });
+      }
+    }, 30000);
+  },
+
+  async loadCompatibilityPlayback(session) {
+    session.sourceUrl = this.compatibility?.sourceUrl || this.currentPlaybackUrl;
+    session.sourceHeaders = this.compatibility?.sourceHeaders || this.currentPlaybackHeaders;
+    this.compatibility = session;
+    await this.setPlaybackRate(1);
+    this.compatibilityPendingPosition = session.offset;
+    this.currentPlaybackUrl = session.url;
+    this.currentPlaybackHeaders = {};
+    this.currentPlaybackMediaSourceType = "application/vnd.apple.mpegurl";
+    const playToken = this.playRequestToken;
+    this.teardownAdaptiveInstances();
+    const engine = this.choosePlaybackEngine(session.url, this.currentPlaybackMediaSourceType);
+    await this.ensureAdaptiveLibrariesForSource(this.currentPlaybackMediaSourceType, engine);
+    if (this.compatibility !== session || playToken !== this.playRequestToken) return;
+    this.video.pause();
+    this.video.removeAttribute("src");
+    Array.from(this.video.querySelectorAll("source")).forEach((node) => node.remove());
+    this.video.load();
+    this.video.addEventListener(
+      "loadedmetadata",
+      () => {
+        if (this.compatibility === session) this.compatibilityPendingPosition = null;
+      },
+      { once: true }
+    );
+    if (engine !== "hls.js" || !this.playWithHlsJs(session.url, {}, playToken)) {
+      this.applyNativeSource(session.url, this.currentPlaybackMediaSourceType, "native-hls");
+      void this.attemptBrowserVideoPlay({ playToken });
+    }
+    this.emitVideoEvent("audiotrackschanged");
+  },
+
+  async seekCompatibilityPlayback(position, track = this.compatibility?.track) {
+    const session = this.compatibility;
+    if (!session || this.compatibilitySeeking) return false;
+    this.compatibilitySeeking = true;
+    this.compatibilityPendingPosition = position;
+    this.video?.pause();
+    // The server replaces the playlist on seek, resume and audio changes.
+    // Stop the old loader before that generation becomes unavailable.
+    this.teardownAdaptiveInstances();
+    this.emitVideoEvent("waiting");
+    try {
+      const result = await requestCompatibilityPlayback(`/${session.id}/seek`, { position, track });
+      if (this.compatibility !== session) return false;
+      await this.loadCompatibilityPlayback(result);
+      return true;
+    } catch (error) {
+      if (this.compatibility === session)
+        this.emitVideoEvent("compatibilityerror", { message: error.message });
+      return false;
+    } finally {
+      this.compatibilitySeeking = false;
+    }
+  },
+
+  stopCompatibilityPlayback() {
+    clearInterval(this.compatibilityTimer);
+    closeCompatibilityPlayback(this.compatibility?.id);
+    if (this.compatibility) {
+      this.currentPlaybackUrl = this.compatibility.sourceUrl;
+      this.currentPlaybackHeaders = this.compatibility.sourceHeaders;
+    }
+    this.compatibility = null;
+    this.compatibilityPendingPosition = null;
+    this.compatibilitySeeking = false;
+  },
 
   isExpectedPlayInterruption(error) {
     const message = String(error?.message || "").toLowerCase();
@@ -280,6 +527,18 @@ export const PlayerController = {
   },
 
   getBrowserAudioTracks() {
+    if (this.localAudio) return this.localAudio.tracks;
+    if (this.compatibility)
+      return this.compatibility.tracks.map((track, index) => ({
+        id: String(track.index),
+        index,
+        label: track.title || track.language || `Audio ${index + 1}`,
+        language: track.language,
+        codec: "aac",
+        selected: track.index === this.compatibility.track,
+        engine: "compatibility",
+        raw: { codec: "aac" }
+      }));
     if (this.playbackEngine === "hls.js") {
       const selectedIndex = this.getSelectedHlsAudioTrackIndex();
       return this.getHlsAudioTracks().map((track, index) => ({
@@ -301,7 +560,24 @@ export const PlayerController = {
         engine: "dash.js"
       }));
     }
-    return this.getNativeAudioTracks();
+    const nativeTracks = this.getNativeAudioTracks();
+    if (
+      nativeTracks.length ||
+      this.playbackEngine !== "native-file" ||
+      this.audioInspection?.playToken !== this.playRequestToken
+    )
+      return nativeTracks;
+    return this.audioInspection.tracks.map((track, index) => ({
+      id: String(track.index),
+      index,
+      sourceIndex: track.index,
+      label: track.title || track.language || `Audio ${index + 1}`,
+      language: track.language,
+      codec: track.codec,
+      selected: track.index === this.audioInspection.track,
+      engine: "inspected",
+      raw: track
+    }));
   },
 
   getSelectedBrowserAudioTrackIndex() {
@@ -315,6 +591,17 @@ export const PlayerController = {
       return false;
     }
     const engine = tracks[targetIndex]?.engine;
+    if (engine === "avplayer") {
+      void this.localAudio.seek(this.getCurrentTimeSeconds(), tracks[targetIndex].id);
+      return true;
+    }
+    if (engine === "compatibility") {
+      void this.seekCompatibilityPlayback(
+        this.getCurrentTimeSeconds(),
+        this.compatibility.tracks[targetIndex].index
+      );
+      return true;
+    }
     if (engine === "hls.js") {
       return this.setHlsAudioTrack(targetIndex);
     }
@@ -365,25 +652,11 @@ export const PlayerController = {
   },
 
   resumePlaybackAfterStartupGate() {
-    if (!this.video) {
-      return;
-    }
-    try {
-      const playPromise = this.video.play();
-      if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch((error) => {
-          if (this.isExpectedPlayInterruption(error)) {
-            return;
-          }
-          console.warn("Playback start after startup gate rejected", error);
-        });
-      }
-      this.isPlaying = true;
-    } catch (error) {
-      if (!this.isExpectedPlayInterruption(error)) {
-        console.warn("Playback start after startup gate rejected", error);
-      }
-    }
+    if (!this.video) return;
+    this.isPlaying = true;
+    void this.attemptBrowserVideoPlay({
+      warningLabel: "Playback start after startup gate rejected"
+    });
   },
 
   handlePlaybackStartedUnderStartupGate(playPromise = null) {
@@ -414,7 +687,13 @@ export const PlayerController = {
     }
 
     const handleRejectedPlay = async (error) => {
+      if (playToken !== null && playToken !== this.playRequestToken) return false;
       if (this.isExpectedPlayInterruption(error)) {
+        return false;
+      }
+      if (error?.name === "NotAllowedError") {
+        this.isPlaying = false;
+        this.emitVideoEvent("playbackgesture");
         return false;
       }
       if (typeof onRejected === "function") {
@@ -467,10 +746,17 @@ export const PlayerController = {
   },
 
   getCurrentTimeSeconds() {
+    if (this.localAudio) return this.localAudio.position;
+    if (Number.isFinite(this.compatibilityPendingPosition))
+      return this.compatibilityPendingPosition;
+    if (this.compatibility)
+      return this.compatibility.offset + Math.max(0, Number(this.video?.currentTime || 0));
     return Math.max(0, Number(this.video?.currentTime || 0));
   },
 
   getDurationSeconds() {
+    if (this.localAudio) return this.localAudio.duration || this.lastKnownDurationSeconds;
+    if (this.compatibility) return this.compatibility.duration;
     const durationSeconds = Number(this.video?.duration || 0);
     if (
       Number.isFinite(durationSeconds) &&
@@ -482,9 +768,12 @@ export const PlayerController = {
   },
 
   getBufferedTimeSeconds() {
+    if (this.localAudio) return null;
     try {
       const video = this.video;
-      const durationSeconds = Number(video?.duration || 0);
+      const durationSeconds = this.compatibility
+        ? this.compatibility.duration - this.compatibility.offset
+        : Number(video?.duration || 0);
       const currentSeconds = Number(video?.currentTime || 0);
       const ranges = video?.buffered;
       if (
@@ -512,7 +801,9 @@ export const PlayerController = {
           startSeconds <= currentSeconds &&
           endSeconds >= currentSeconds
         ) {
-          return Math.max(0, Math.min(endSeconds, durationSeconds));
+          return (
+            (this.compatibility?.offset || 0) + Math.max(0, Math.min(endSeconds, durationSeconds))
+          );
         }
       }
     } catch (_) {
@@ -531,6 +822,14 @@ export const PlayerController = {
     if (!this.video) {
       return false;
     }
+    if (this.compatibility) {
+      void this.seekCompatibilityPlayback(Math.min(seconds, this.compatibility.duration - 0.1));
+      return true;
+    }
+    if (this.localAudio) {
+      void this.localAudio.seek(Math.min(seconds, Math.max(0, this.getDurationSeconds() - 0.1)));
+      return true;
+    }
     try {
       this.video.currentTime = seconds;
       return true;
@@ -540,6 +839,7 @@ export const PlayerController = {
   },
 
   isPlaybackEnded() {
+    if (this.localAudio) return Boolean(this.localAudio.ended);
     return Boolean(this.video?.ended);
   },
 
@@ -613,7 +913,7 @@ export const PlayerController = {
       mediaError: this.sanitizePlaybackDiagnosticText(video?.error?.message)
     };
     this.lastHlsErrorDiagnostic = diagnostic;
-    console.warn("[Nuvio playback] hls.js error", diagnostic);
+    console.warn("[Nuvio playback] hls.js error", JSON.stringify(diagnostic));
     return diagnostic;
   },
 
@@ -737,6 +1037,8 @@ export const PlayerController = {
     sourceType = this.currentPlaybackMediaSourceType,
     itemType = this.currentItemType
   ) {
+    // Recovery must not replace converted HLS with the original unsupported file.
+    if (this.compatibility || this.localAudio) return null;
     const normalizedUrl = String(url || "").trim();
     if (!normalizedUrl) {
       return null;
@@ -822,6 +1124,7 @@ export const PlayerController = {
       return false;
     }
     this.playbackEngine = String(engineName || "native-file");
+    void this.setPlaybackRate(this.desiredPlaybackRate);
     return true;
   },
 
@@ -867,6 +1170,7 @@ export const PlayerController = {
     const forwardedHeaders = this.normalizePlaybackHeaders(requestHeaders);
     return {
       autoStartLoad: false,
+      ...(this.compatibility ? { startPosition: 0, liveSyncDurationCount: 10000 } : {}),
       enableWorker: true,
       lowLatencyMode: false,
       backBufferLength: 90,
@@ -1107,21 +1411,11 @@ export const PlayerController = {
       }
       this.primeHlsInitialLevel(hls);
       try {
-        hls.startLoad();
+        hls.startLoad(this.compatibility ? 0 : -1);
       } catch (_) {
         // hls.js may already be loading on older builds.
       }
-      this.applyStartupAudioGateToVideo();
-      const playPromise = this.video.play();
-      this.handlePlaybackStartedUnderStartupGate(playPromise);
-      if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch((error) => {
-          if (this.isExpectedPlayInterruption(error)) {
-            return;
-          }
-          console.warn("HLS playback start rejected", error);
-        });
-      }
+      void this.attemptBrowserVideoPlay({ warningLabel: "HLS playback start rejected", playToken });
     });
 
     [
@@ -1428,6 +1722,9 @@ export const PlayerController = {
   },
 
   getSupportedPlaybackRates() {
+    // The bounded server buffer runs at real time; add rate-aware
+    // conversion only if compatibility playback needs variable speed.
+    if (this.compatibility) return [1];
     return [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
   },
 
@@ -1444,12 +1741,14 @@ export const PlayerController = {
       return false;
     }
     const targetSpeed = this.normalizePlaybackRate(speed);
+    if (this.compatibility && targetSpeed !== 1) return false;
     if (!Number.isFinite(targetSpeed)) {
       return false;
     }
 
     try {
-      this.video.playbackRate = targetSpeed;
+      if (this.localAudio) this.localAudio.player?.setPlaybackRate(targetSpeed);
+      else this.video.playbackRate = targetSpeed;
     } catch (_) {
       return false;
     }
@@ -1573,6 +1872,12 @@ export const PlayerController = {
       this.videoElementListeners.push({ target: video, eventName, handler });
     };
 
+    ["playing", "pause", "ended", "error"].forEach((eventName) =>
+      listen(eventName, () => {
+        void this.updateScreenWakeLock();
+      })
+    );
+
     listen("ended", () => {
       this.isPlaying = false;
       const context = this.createProgressContext();
@@ -1613,6 +1918,7 @@ export const PlayerController = {
     };
 
     this.playRequestToken = Number(this.playRequestToken || 0) + 1;
+    void this.stopLocalAudioPlayback();
     this.unbindVideoElementListeners();
     this.teardownAdaptiveInstances();
     try {
@@ -1650,11 +1956,19 @@ export const PlayerController = {
 
     if (!this.lifecycleBound) {
       this.lifecycleBound = true;
-      this.lifecycleFlushHandler = () => {
+      window.addEventListener("pointerdown", unlockLocalAudio, { capture: true, passive: true });
+      window.addEventListener("keydown", unlockLocalAudio, { capture: true });
+      this.lifecycleFlushHandler = (event) => {
         this.flushCurrentProgress({ forceCloudSync: true });
         this.scrobbleTerminalReport();
+        if (event?.type === "pagehide" || event?.type === "beforeunload") {
+          this.playRequestToken += 1;
+          void this.stopLocalAudioPlayback();
+          this.stopCompatibilityPlayback();
+        }
       };
       this.visibilityFlushHandler = () => {
+        void this.updateScreenWakeLock();
         if (document.visibilityState === "hidden") {
           this.lifecycleFlushHandler?.();
         }
@@ -1694,6 +2008,11 @@ export const PlayerController = {
     if (!this.isPlaybackRequestActive(playToken)) {
       return;
     }
+
+    this.stopCompatibilityPlayback();
+
+    await this.stopLocalAudioPlayback();
+    if (!this.isPlaybackRequestActive(playToken)) return;
 
     // Starting a new built-in playback session is an intentional local-player
     // action. Any stale protection left by an earlier external handoff must
@@ -1851,16 +2170,14 @@ export const PlayerController = {
       return;
     }
 
-    const playPromise = this.video.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch((error) => {
-        if (this.isExpectedPlayInterruption(error)) {
-          return;
-        }
-        console.warn("Playback resume rejected", error);
-      });
+    // The server keeps a short segment window. A paused browser may still report
+    // buffered ranges whose following segments have already expired.
+    if (this.compatibility && this.video.paused) {
+      void this.seekCompatibilityPlayback(this.getCurrentTimeSeconds());
+      return;
     }
     this.isPlaying = true;
+    void this.attemptBrowserVideoPlay({ warningLabel: "Playback resume rejected" });
   },
 
   stop({ forceCloudSync = true, allowCloudSync = true, flushProgress = true } = {}) {
@@ -1871,19 +2188,16 @@ export const PlayerController = {
     const flushPromise = flushProgress
       ? this.flushCurrentProgress({ forceCloudSync, allowCloudSync })
       : Promise.resolve(false);
+    // Read the absolute timeline before local audio or server playback is torn down.
+    if (this.playbackSessionActive) this.scrobbleTerminalReport();
+    this.stopCompatibilityPlayback();
+    void this.stopLocalAudioPlayback();
     if (!this.playbackSessionActive) {
       this.stopProgressSaveTimer();
       return flushPromise;
     }
     this.playbackSessionActive = false;
     this.setStartupAudioGate(false, { resume: false });
-
-    // Report to the tracking providers here, beside the local flush above and
-    // before the teardown below. Every way out of the player funnels through
-    // stop(), and the back-to-Stream path calls it long before the route
-    // actually changes -- so a report left to route cleanup runs after
-    // video.load() has reset currentTime, and has no position left to send.
-    this.scrobbleTerminalReport();
 
     try {
       this.video.pause();

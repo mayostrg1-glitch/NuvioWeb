@@ -17,7 +17,9 @@ function safeSourceIdentity(sourceUrl = "") {
 
 function cacheKey(identity = "") {
   const origin = globalThis.location?.origin || "https://nuvio.local";
-  return new Request(new URL(`__nuvio_profile_avatar__/${encodeURIComponent(identity)}`, `${origin}/`).href);
+  return new Request(
+    new URL(`__nuvio_profile_avatar__/${encodeURIComponent(identity)}`, `${origin}/`).href
+  );
 }
 
 function readIndex() {

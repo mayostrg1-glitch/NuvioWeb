@@ -12,7 +12,10 @@ test("uncovered browser DebridApi cloud operations remain direct until the cloud
   };
 
   try {
-    const result = await DebridApi.torboxListCloudItems("browser-key", "v1/api/torrents/mylist?id=torrent-1");
+    const result = await DebridApi.torboxListCloudItems(
+      "browser-key",
+      "v1/api/torrents/mylist?id=torrent-1"
+    );
 
     assert.equal(result.ok, true);
     assert.equal(result.data.id, "torrent-1");
@@ -77,7 +80,14 @@ test("Premiumize browser auth uses same-origin routes and keeps the public clien
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url, options });
     if (String(url).endsWith("/device/start")) {
-      return new Response(JSON.stringify({ device_code: "device", user_code: "CODE", verification_uri: "https://premiumize.me/device" }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          device_code: "device",
+          user_code: "CODE",
+          verification_uri: "https://premiumize.me/device"
+        }),
+        { status: 200 }
+      );
     }
     if (String(url).endsWith("/device/redeem")) {
       return new Response(JSON.stringify({ access_token: "token" }), { status: 200 });
@@ -97,7 +107,10 @@ test("Premiumize browser auth uses same-origin routes and keeps the public clien
         "/api/debrid/premiumize/account"
       ]
     );
-    assert.equal(requests.every((request) => !String(request.url).includes("public-client-id")), true);
+    assert.equal(
+      requests.every((request) => !String(request.url).includes("public-client-id")),
+      true
+    );
     assert.equal(requests[0].options.body.includes("public-client-id"), true);
     assert.equal(requests[2].options.headers.Authorization, "Bearer provider-credential");
   } finally {
@@ -114,12 +127,16 @@ test("TorBox browser playback operations use fixed same-origin bridge routes", a
       return new Response(JSON.stringify({ success: true, data: { hash: {} } }), { status: 200 });
     }
     if (String(url).endsWith("/torrent/create")) {
-      return new Response(JSON.stringify({ success: true, data: { torrent_id: "torrent-id" } }), { status: 200 });
+      return new Response(JSON.stringify({ success: true, data: { torrent_id: "torrent-id" } }), {
+        status: 200
+      });
     }
     if (String(url).endsWith("/torrent/lookup")) {
       return new Response(JSON.stringify({ success: true, data: { files: [] } }), { status: 200 });
     }
-    return new Response(JSON.stringify({ success: true, data: "https://provider.example/file" }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, data: "https://provider.example/file" }), {
+      status: 200
+    });
   };
 
   try {
@@ -136,8 +153,16 @@ test("TorBox browser playback operations use fixed same-origin bridge routes", a
         "/api/debrid/torbox/link/resolve"
       ]
     );
-    assert.equal(requests.every((request) => !String(request.url).includes("provider-credential")), true);
-    assert.equal(requests.every((request) => request.options.headers.Authorization === "Bearer provider-credential"), true);
+    assert.equal(
+      requests.every((request) => !String(request.url).includes("provider-credential")),
+      true
+    );
+    assert.equal(
+      requests.every(
+        (request) => request.options.headers.Authorization === "Bearer provider-credential"
+      ),
+      true
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

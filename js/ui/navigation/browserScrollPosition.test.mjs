@@ -14,15 +14,17 @@ function makeElement({ scrollHeight = 0, clientHeight = 0, scrollTop = 0, positi
 const fakeDocument = { body: null, documentElement: null };
 globalThis.document = fakeDocument;
 
-const {
-  getBrowserVerticalScrollOwner,
-  getBrowserVerticalScrollTop,
-  setBrowserVerticalScrollTop
-} = await import("./browserScrollPosition.js");
+const { getBrowserVerticalScrollOwner, getBrowserVerticalScrollTop, setBrowserVerticalScrollTop } =
+  await import("./browserScrollPosition.js");
 
 test("a layered screen scrolls inside its own container", () => {
   fakeDocument.body = makeElement({ scrollHeight: 4836, clientHeight: 896, scrollTop: 336 });
-  const detail = makeElement({ scrollHeight: 1097, clientHeight: 812, scrollTop: 72, position: "fixed" });
+  const detail = makeElement({
+    scrollHeight: 1097,
+    clientHeight: 812,
+    scrollTop: 72,
+    position: "fixed"
+  });
   assert.equal(getBrowserVerticalScrollOwner(detail), detail);
   assert.equal(getBrowserVerticalScrollTop(detail), 72);
 });
@@ -42,7 +44,12 @@ test("a layered screen is never handed another screen's scroller, whatever the g
   // scroll position would discard the scroll of the screen underneath it.
   const body = makeElement({ scrollHeight: 939, clientHeight: 910, scrollTop: 600 });
   fakeDocument.body = body;
-  const detail = makeElement({ scrollHeight: 910, clientHeight: 910, scrollTop: 0, position: "fixed" });
+  const detail = makeElement({
+    scrollHeight: 910,
+    clientHeight: 910,
+    scrollTop: 0,
+    position: "fixed"
+  });
 
   assert.equal(getBrowserVerticalScrollOwner(detail), detail);
   setBrowserVerticalScrollTop(0, detail);

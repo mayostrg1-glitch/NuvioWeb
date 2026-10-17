@@ -18,23 +18,29 @@ export async function readAppMetadata() {
     .replace(/\.git$/, "")
     .replace(/\/$/, "");
   const fork = packageJson?.nuvioFork || {};
-  const sourceUrl = sourceRepositoryUrl || "https://github.com/alphasquare404/NuvioWeb";
+  const sourceUrl = sourceRepositoryUrl || "https://github.com/falcononrails/NuvioWeb";
   const version = String(packageJson?.version || "0.0.0").trim() || "0.0.0";
+  const channel = ["nightly", "beta", "stable"].includes(process.env.NUVIO_RELEASE_CHANNEL)
+    ? process.env.NUVIO_RELEASE_CHANNEL
+    : "development";
+  const revision = String(process.env.NUVIO_BUILD_REVISION || process.env.GITHUB_SHA || "");
   return {
     name: String(packageJson?.name || "").trim(),
     version,
     identity: {
       name: "NuvioWeb",
       version,
+      channel,
+      revision: /^[a-f0-9]{40}$/i.test(revision) ? revision : "",
       upstreamVersion: String(fork.upstreamVersion || "0.3.35").trim() || "0.3.35",
-      maintainer: String(fork.maintainer || "alphasquare").trim() || "alphasquare",
+      maintainer: String(fork.maintainer || "falcononrails").trim() || "falcononrails",
       sourceRepositoryUrl: sourceUrl,
       issuesUrl: `${sourceUrl}/issues`,
       contributorsUrl: `${sourceUrl}/graphs/contributors`,
-      licenseUrl: `${sourceUrl}/blob/${String(fork.defaultBranch || "main").trim() || "main"}/LICENSE`,
+      licenseUrl: `${sourceUrl}/blob/${String(fork.defaultBranch || "nightly").trim() || "nightly"}/LICENSE`,
       upstreamRepositoryUrl:
-        String(fork.upstreamRepository || "https://github.com/NuvioMedia/NuvioWeb").trim() ||
-        "https://github.com/NuvioMedia/NuvioWeb",
+        String(fork.upstreamRepository || "https://github.com/alphasquare404/NuvioWeb").trim() ||
+        "https://github.com/alphasquare404/NuvioWeb",
       latestReleaseUrl: `https://api.github.com/repos/${sourceUrl.replace("https://github.com/", "")}/releases/latest`
     }
   };

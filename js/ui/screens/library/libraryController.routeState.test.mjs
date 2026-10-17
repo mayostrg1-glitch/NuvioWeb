@@ -8,13 +8,12 @@ globalThis.localStorage = {
   removeItem: () => {}
 };
 
-const { libraryRepository, LibrarySourceMode } = await import(
-  "../../../data/repository/libraryRepository.js"
-);
-const { watchedItemsRepository } = await import("../../../data/repository/watchedItemsRepository.js");
-const { LibraryController, LIBRARY_PRESENTATION_MODE, LIBRARY_VIEW_MODE } = await import(
-  "./libraryController.js"
-);
+const { libraryRepository, LibrarySourceMode } =
+  await import("../../../data/repository/libraryRepository.js");
+const { watchedItemsRepository } =
+  await import("../../../data/repository/watchedItemsRepository.js");
+const { LibraryController, LIBRARY_PRESENTATION_MODE, LIBRARY_VIEW_MODE } =
+  await import("./libraryController.js");
 
 async function withLibraryFixture(fixture, run) {
   const originals = {
@@ -79,12 +78,15 @@ test("LibraryController safely normalizes malformed route state", () => {
   const controller = new LibraryController();
   try {
     assert.equal(controller.hydrateFromRouteState(null), false);
-    assert.equal(controller.hydrateFromRouteState({
-      viewMode: "unexpected",
-      presentationMode: "unexpected",
-      selectedTypeKey: "",
-      selectedSortKey: ""
-    }), true);
+    assert.equal(
+      controller.hydrateFromRouteState({
+        viewMode: "unexpected",
+        presentationMode: "unexpected",
+        selectedTypeKey: "",
+        selectedSortKey: ""
+      }),
+      true
+    );
     const state = controller.captureRouteState();
     assert.equal(state.viewMode, LIBRARY_VIEW_MODE.SAVED);
     assert.equal(state.presentationMode, LIBRARY_PRESENTATION_MODE.FLAT);

@@ -47,12 +47,18 @@ function destroySession(session, { notify = true } = {}) {
   session.closeButton.removeEventListener("click", session.closeHandler);
   const frame = session.modal.querySelector("iframe");
   if (frame) {
-    try { frame.src = "about:blank"; } catch (_) {}
+    try {
+      frame.src = "about:blank";
+    } catch (_) {}
     frame.removeAttribute("src");
   }
   const video = session.modal.querySelector("video");
   if (video) {
-    try { video.pause(); video.removeAttribute("src"); video.load(); } catch (_) {}
+    try {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    } catch (_) {}
   }
   session.backdrop.remove();
   document.body?.classList?.remove("detail-trailer-modal-open");
@@ -86,14 +92,30 @@ export function openDesktopTrailerModal({ source, title = "Trailer", onClose } =
   backdrop.append(modal);
   document.body.append(backdrop);
   document.body.classList.add("detail-trailer-modal-open");
-  const session = { backdrop, modal, closeButton, onClose, keydownHandler: null, backdropHandler: null, closeHandler: null };
+  const session = {
+    backdrop,
+    modal,
+    closeButton,
+    onClose,
+    keydownHandler: null,
+    backdropHandler: null,
+    closeHandler: null
+  };
   activeSession = session;
   const close = () => destroySession(session);
-  session.closeHandler = (event) => { event.preventDefault(); event.stopPropagation(); close(); };
-  session.backdropHandler = (event) => { if (event.target === backdrop) close(); };
+  session.closeHandler = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  };
+  session.backdropHandler = (event) => {
+    if (event.target === backdrop) close();
+  };
   session.keydownHandler = (event) => {
     if (event.key === "Escape" || Number(event.keyCode || 0) === 27) {
-      event.preventDefault(); event.stopPropagation(); close();
+      event.preventDefault();
+      event.stopPropagation();
+      close();
     }
   };
   closeButton.addEventListener("click", session.closeHandler);
@@ -101,12 +123,16 @@ export function openDesktopTrailerModal({ source, title = "Trailer", onClose } =
   window.addEventListener("keydown", session.keydownHandler, true);
   const fail = () => {
     if (activeSession !== session) return;
-    content.innerHTML = '<div class="detail-trailer-modal-error" role="status">Trailer unavailable.</div>';
+    content.innerHTML =
+      '<div class="detail-trailer-modal-error" role="status">Trailer unavailable.</div>';
     setTimeout(() => destroySession(session), 1200);
   };
   if (source.kind === "youtube" && source.ytId) {
     const frameUrl = modalEmbedUrl(source);
-    if (!frameUrl) { fail(); return session; }
+    if (!frameUrl) {
+      fail();
+      return session;
+    }
     const frame = document.createElement("iframe");
     frame.className = "detail-trailer-modal-frame";
     frame.src = frameUrl;
@@ -114,7 +140,10 @@ export function openDesktopTrailerModal({ source, title = "Trailer", onClose } =
     frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
     frame.referrerPolicy = "origin-when-cross-origin";
     frame.allowFullscreen = true;
-    frame.addEventListener("load", () => { if (activeSession === session) content.querySelector(".detail-trailer-modal-loading")?.remove(); });
+    frame.addEventListener("load", () => {
+      if (activeSession === session)
+        content.querySelector(".detail-trailer-modal-loading")?.remove();
+    });
     content.append(frame);
     return session;
   }
@@ -122,10 +151,17 @@ export function openDesktopTrailerModal({ source, title = "Trailer", onClose } =
     const video = document.createElement("video");
     video.className = "detail-trailer-modal-video";
     video.src = source.url;
-    video.autoplay = true; video.muted = true; video.controls = true; video.playsInline = true;
-    video.addEventListener("canplay", () => { if (activeSession === session) content.querySelector(".detail-trailer-modal-loading")?.remove(); });
+    video.autoplay = true;
+    video.muted = true;
+    video.controls = true;
+    video.playsInline = true;
+    video.addEventListener("canplay", () => {
+      if (activeSession === session)
+        content.querySelector(".detail-trailer-modal-loading")?.remove();
+    });
     video.addEventListener("error", fail, { once: true });
-    content.append(video); video.play?.().catch(() => {});
+    content.append(video);
+    video.play?.().catch(() => {});
     return session;
   }
   fail();

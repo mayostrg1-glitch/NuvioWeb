@@ -22,7 +22,9 @@ function formatAddonHost(url) {
 
 function truncateText(value, maxLength = 220) {
   const text = String(value || "").trim();
-  return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+  return text.length <= maxLength
+    ? text
+    : `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
 export function createDesktopAddonManager({ requestRender, isActive } = {}) {
@@ -61,7 +63,10 @@ export function createDesktopAddonManager({ requestRender, isActive } = {}) {
     setStatus("Syncing…");
     await rerender();
     const synced = await StartupSyncService.requestAddonSync();
-    setStatus(synced ? "Synced" : "Sync failed — changes are still saved locally.", synced ? "success" : "error");
+    setStatus(
+      synced ? "Synced" : "Sync failed — changes are still saved locally.",
+      synced ? "success" : "error"
+    );
     await rerender();
     return synced;
   };
@@ -135,7 +140,9 @@ export function createDesktopAddonManager({ requestRender, isActive } = {}) {
     const enabled = !addonRepository.isAddonEnabled(url);
     addonRepository.setAddonEnabledStates([{ url, enabled }], { replace: false });
     state.addons = addonRepository.getConfiguredAddons({ includeDisabled: true });
-    setStatus(`${addon.displayName || addon.name || "Addon"} ${enabled ? "enabled" : "disabled"} locally.`);
+    setStatus(
+      `${addon.displayName || addon.name || "Addon"} ${enabled ? "enabled" : "disabled"} locally.`
+    );
     await rerender();
     await requestAutosync();
   };
@@ -317,10 +324,16 @@ export function createDesktopAddonManager({ requestRender, isActive } = {}) {
         void addAddon();
       });
       container.querySelectorAll("[data-addon-toggle]").forEach((node) => {
-        node.addEventListener("change", () => void toggleAddon(state.addons[Number(node.dataset.addonToggle || -1)]));
+        node.addEventListener(
+          "change",
+          () => void toggleAddon(state.addons[Number(node.dataset.addonToggle || -1)])
+        );
       });
       container.querySelectorAll("[data-addon-refresh]").forEach((node) => {
-        node.addEventListener("click", () => void refreshAddon(state.addons[Number(node.dataset.addonRefresh || -1)]));
+        node.addEventListener(
+          "click",
+          () => void refreshAddon(state.addons[Number(node.dataset.addonRefresh || -1)])
+        );
       });
       container.querySelectorAll("[data-addon-remove]").forEach((node) => {
         node.addEventListener("click", () => {
@@ -332,13 +345,17 @@ export function createDesktopAddonManager({ requestRender, isActive } = {}) {
         state.removeTarget = null;
         void rerender();
       });
-      container.querySelector("[data-addon-remove-confirm]")?.addEventListener("click", () => void confirmRemove());
-      container.querySelector("[data-addon-dialog-backdrop]")?.addEventListener("click", (event) => {
-        if (event.target === event.currentTarget) {
-          state.removeTarget = null;
-          void rerender();
-        }
-      });
+      container
+        .querySelector("[data-addon-remove-confirm]")
+        ?.addEventListener("click", () => void confirmRemove());
+      container
+        .querySelector("[data-addon-dialog-backdrop]")
+        ?.addEventListener("click", (event) => {
+          if (event.target === event.currentTarget) {
+            state.removeTarget = null;
+            void rerender();
+          }
+        });
       bindDrag(container);
     },
 

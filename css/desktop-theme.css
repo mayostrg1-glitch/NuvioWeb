@@ -1,0 +1,1568 @@
+/* Shared browser appearance, following NuvioDesktop's ThemeColors and NuvioTokens.
+   Keep layout/behavior in desktop.css; use one surface and interaction treatment here. */
+@font-face {
+  font-family: "JetBrains Sans";
+  src: url("../assets/fonts/jetbrains_sans_regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Sans";
+  src: url("../assets/fonts/jetbrains_sans_semibold.ttf") format("truetype");
+  font-weight: 500 699;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Sans";
+  src: url("../assets/fonts/jetbrains_sans_bold.ttf") format("truetype");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+html.desktop-browser {
+  /* Small secondary text must remain readable on elevated surfaces. */
+  --text-tertiary: #a0a0a0 !important;
+  --player-text-tertiary: #a0a0a0 !important;
+  --desktop-surface: var(--bg-elevated);
+  --desktop-hover: rgb(255 255 255 / 0.08);
+  --desktop-selected: rgb(var(--secondary-color-rgb) / 0.15);
+  --desktop-divider: rgb(37 42 42 / 0.55);
+  --desktop-radius: 16px;
+  --desktop-motion: 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+html.desktop-browser :is(button, input, select, textarea) {
+  font-family: var(--app-font-family);
+}
+
+html.desktop-browser :is(button, [role="button"]) {
+  font-weight: 600;
+}
+
+/* TV focus classes also mark the last mouse selection. They are not persistent borders. */
+html.desktop-browser :is(button, [role="button"], .focusable),
+html.desktop-browser .settings-shell :is(.focusable.focused, .settings-dialog-option:focus-visible),
+html.desktop-browser .settings-shell .settings-dialog .settings-dialog-option.focused {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html.desktop-browser:not(.keyboard-navigation) .focused:not(:focus-visible) {
+  outline: none !important;
+}
+
+html.desktop-browser :is(button, a, input, select, textarea, [tabindex]):focus-visible,
+html.desktop-browser.keyboard-navigation .focusable.focused,
+html.desktop-browser.keyboard-navigation .nuvio-dialog-button.focused {
+  outline: 2px solid var(--focus-color) !important;
+  outline-offset: 2px;
+}
+
+.desktop-skip-link {
+  position: fixed;
+  top: 8px;
+  left: 16px;
+  z-index: 10000;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #111;
+  transform: translateY(-160%);
+}
+.desktop-skip-link:focus {
+  transform: none;
+}
+.desktop-browser .desktop-collection-switch input:focus-visible + span {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.desktop-browser *,
+  html.desktop-browser *::before,
+  html.desktop-browser *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  html.desktop-browser :is(button, [role="button"], .focusable):focus-visible {
+    outline: 3px solid Highlight !important;
+  }
+  html.desktop-browser :is(button, [role="button"], .focusable) {
+    border: 1px solid ButtonText !important;
+  }
+  .desktop-navigation-icon,
+  .player-control-icon-mask {
+    forced-color-adjust: none;
+    background-color: ButtonText !important;
+  }
+}
+
+html.desktop-browser :is(button, [role="button"]) {
+  transition:
+    background-color var(--desktop-motion),
+    color var(--desktop-motion),
+    opacity var(--desktop-motion);
+}
+
+html.desktop-browser :is(button, [role="button"]):disabled {
+  opacity: 0.38;
+}
+
+.desktop-browser .settings-shell .settings-action-row.is-disabled {
+  opacity: 1;
+  color: var(--text-tertiary);
+}
+
+/* Shared by native controls and the TV-originated clickable cards. Text fields
+   keep their text cursor; the player still hides the cursor with its controls. */
+html.desktop-browser
+  :is(
+    button,
+    a[href],
+    select,
+    input[type="range"],
+    input[type="checkbox"],
+    input[type="radio"],
+    [role="button"],
+    [role="slider"],
+    [role="tab"],
+    [role="switch"],
+    [role="menuitem"],
+    .focusable:not(input):not(textarea),
+    [data-player-pointer-action],
+    [data-player-error-action],
+    [data-sources-zone],
+    [data-subtitle-rail],
+    [data-subtitle-style-action],
+    [data-episode-index],
+    [data-episode-season-index],
+    [data-episode-stream-index],
+    [data-speed-index]
+  ) {
+  cursor: pointer;
+}
+
+html.desktop-browser :is(:disabled, [aria-disabled="true"]) {
+  cursor: default;
+}
+
+/* Navigation uses the desktop app's floating surface and filled active item. */
+.desktop-browser .desktop-navigation {
+  border: 0;
+  background: rgb(28 28 30 / 0.72);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.desktop-browser .desktop-navigation-item.is-active {
+  background: transparent;
+}
+
+.desktop-browser .desktop-navigation-item {
+  height: 46px;
+  padding-inline: 4px 12px;
+  font-weight: 600;
+}
+
+.desktop-browser .desktop-navigation-icon-slot {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+}
+
+.desktop-browser .desktop-navigation-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  background: currentColor;
+  mask: center / contain no-repeat;
+  -webkit-mask: center / contain no-repeat;
+}
+
+.desktop-browser .desktop-navigation-item.is-active .desktop-navigation-icon-slot {
+  background: var(--secondary-color);
+  color: var(--on-secondary);
+}
+
+/* Account and fork information use the same scale as other browser settings. */
+.desktop-browser .settings-shell .settings-account-status-card {
+  min-height: 52px;
+  padding: 12px 16px;
+  gap: 12px;
+}
+.desktop-browser .settings-shell .settings-account-status-icon {
+  font-size: 24px;
+}
+.desktop-browser .settings-shell .settings-account-status-label {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.desktop-browser .settings-shell .settings-account-status-value {
+  font-size: 16px;
+  line-height: 1.4;
+}
+.desktop-browser .settings-shell .settings-account-inline-note {
+  padding: 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.desktop-browser .settings-shell .settings-account-backend {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.desktop-browser .settings-shell .settings-account-description,
+.desktop-browser .settings-shell .settings-account-loading,
+.desktop-browser .settings-shell .settings-account-sync-loading {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.desktop-browser .settings-shell .settings-account-action-button {
+  min-height: 64px;
+  padding: 12px 16px;
+  gap: 14px;
+}
+.desktop-browser .settings-shell .settings-account-button-icon {
+  font-size: 24px;
+}
+.desktop-browser .settings-shell .settings-account-button-title {
+  font-size: 16px;
+  line-height: 1.4;
+}
+.desktop-browser .settings-shell .settings-account-button-subtitle {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.desktop-browser .settings-shell .settings-account-signout-button {
+  min-height: 44px;
+  width: fit-content;
+  padding: 12px 16px;
+  gap: 10px;
+  border-radius: 12px;
+}
+.desktop-browser .settings-shell .settings-account-signout-icon {
+  font-size: 20px;
+}
+.desktop-browser .settings-shell .settings-account-signout-label {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.desktop-browser .settings-shell .settings-account-sync-overview {
+  padding: 12px;
+  gap: 8px;
+}
+.desktop-browser .settings-shell .settings-account-sync-row {
+  min-height: 48px;
+  padding: 10px 12px;
+}
+.desktop-browser .settings-shell .settings-account-sync-total-label {
+  flex: 0 0 160px;
+  width: 160px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.desktop-browser .settings-shell .settings-account-profile-badge {
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+}
+.desktop-browser .settings-shell .settings-account-profile-name {
+  width: 116px;
+  margin-left: 12px;
+  font-size: 15px;
+}
+.desktop-browser .settings-shell .settings-account-stat {
+  min-width: 0;
+  gap: 4px;
+}
+.desktop-browser .settings-shell .settings-account-stat strong {
+  font-size: 16px;
+}
+.desktop-browser .settings-shell .settings-account-stat small {
+  font-size: 12px;
+}
+.desktop-browser .settings-shell .settings-about-brand {
+  gap: 10px;
+  padding: 20px 12px 28px;
+}
+.desktop-browser .settings-shell .settings-about-logo {
+  width: 160px;
+}
+.desktop-browser .settings-shell .settings-about-name {
+  font-size: 20px;
+}
+.desktop-browser .settings-shell .settings-about-copy {
+  max-width: 640px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .desktop-browser .desktop-navigation-item {
+    height: 54px;
+    padding-inline: 4px;
+  }
+
+  .desktop-browser .desktop-navigation-icon-slot {
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
+  }
+
+  .desktop-browser .desktop-navigation-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Use artwork, rather than a bright frame, to define media cards. */
+html.desktop-browser
+  :is(
+    .home-poster-frame,
+    .home-continue-media,
+    .library-grid-poster,
+    .search-result-poster-wrap,
+    .seeall-card-poster-wrap,
+    .detail-morelike-poster-wrap,
+    .movie-cast-avatar,
+    .series-episode-card,
+    .home-collection-card
+  ) {
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 12px;
+}
+
+/* Detail cards follow Desktop's episode dimensions and artwork treatment. */
+.desktop-browser #detail {
+  --desktop-episode-width: min(296px, calc(100vw - 40px));
+  --desktop-episode-height: 184px;
+  --desktop-episode-title: 14px;
+  --desktop-episode-body: 11px;
+  --desktop-episode-lines: 2;
+  --desktop-episode-padding: 10px;
+}
+
+.desktop-browser #detail .series-seasons-heading {
+  margin: 0;
+  padding: 0 clamp(20px, 3.4vw, 64px) 8px;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 600;
+}
+
+.desktop-browser #detail .detail-meta-row .series-imdb-badge img {
+  width: 32px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.desktop-browser #detail .series-season-btn {
+  min-height: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.desktop-browser #detail .series-episode-card {
+  flex-basis: var(--desktop-episode-width);
+  width: var(--desktop-episode-width);
+}
+
+.desktop-browser #detail .series-episode-thumb {
+  height: var(--desktop-episode-height);
+  aspect-ratio: auto;
+  border-radius: 12px;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.desktop-browser #detail .series-episode-image {
+  transition: transform var(--desktop-motion);
+}
+
+.desktop-browser #detail .series-episode-overlay {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 42%,
+    rgb(0 0 0 / 0.2) 56%,
+    rgb(0 0 0 / 0.45) 70%,
+    rgb(0 0 0 / 0.68) 84%,
+    rgb(0 0 0 / 0.92) 100%
+  );
+}
+
+.desktop-browser #detail .series-episode-copy {
+  gap: 6px;
+  padding: var(--desktop-episode-padding);
+}
+
+.desktop-browser #detail .series-episode-badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.desktop-browser #detail .series-episode-title {
+  font-size: var(--desktop-episode-title);
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.desktop-browser #detail .series-episode-overview {
+  font-size: var(--desktop-episode-body);
+  line-height: 1.4;
+  -webkit-line-clamp: var(--desktop-episode-lines);
+  line-clamp: var(--desktop-episode-lines);
+}
+
+.desktop-browser #detail .series-episode-status {
+  top: 16px;
+  right: 16px;
+  left: auto;
+  width: 22px;
+  height: 22px;
+}
+
+.desktop-browser #detail .series-watched-badge-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.desktop-browser #detail :is(.series-episode-status.idle, .series-episode-runtime-icon) {
+  display: none;
+}
+
+.desktop-browser #detail :is(.series-episode-offline-status, .series-episode-unavailable) {
+  right: auto;
+  left: 16px;
+}
+
+.desktop-browser #detail .movie-cast-avatar {
+  border-radius: 50%;
+}
+
+@media (min-width: 760px) {
+  .desktop-browser #detail {
+    --desktop-episode-width: 340px;
+    --desktop-episode-height: 212px;
+    --desktop-episode-title: 16px;
+    --desktop-episode-body: 12px;
+    --desktop-episode-padding: 12px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .desktop-browser #detail {
+    --desktop-episode-width: 384px;
+    --desktop-episode-height: 236px;
+    --desktop-episode-title: 17px;
+    --desktop-episode-body: 13px;
+    --desktop-episode-lines: 3;
+    --desktop-episode-padding: 14px;
+  }
+}
+
+@media (min-width: 1300px) {
+  .desktop-browser #detail {
+    --desktop-episode-width: 420px;
+    --desktop-episode-height: 256px;
+    --desktop-episode-title: 18px;
+    --desktop-episode-body: 14px;
+    --desktop-episode-padding: 16px;
+  }
+}
+
+/* Icons already share Desktop's SVGs. Give all player actions the same quiet
+   circular target instead of mixing outlined tools and filled TV buttons. */
+.desktop-browser #player :is(.player-control-btn, .player-desktop-tool-button) {
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    background-color var(--desktop-motion),
+    color var(--desktop-motion);
+}
+
+.desktop-browser #player .player-control-btn.is-primary {
+  background: rgb(255 255 255 / 0.14);
+}
+
+.desktop-browser #player :is(.player-sources-title, .player-episode-title, .player-modal-title) {
+  font-weight: 600;
+}
+
+.desktop-browser #player :is(.player-sources-top-btn, .player-sources-filter) {
+  font-weight: 600;
+  min-height: 40px;
+}
+
+.desktop-browser #player .player-source-title,
+.desktop-browser #stream .stream-route-card-heading {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.desktop-browser #player .player-source-desc,
+.desktop-browser #stream .stream-route-card-line {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.desktop-browser #player :is(.player-control-icon, img.player-desktop-tool-icon) {
+  width: 22px;
+  height: 22px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .desktop-browser #player :is(.player-control-btn, .player-desktop-tool-button):hover {
+    background: rgb(255 255 255 / 0.18);
+  }
+
+  .desktop-browser #detail .series-episode-card:hover .series-episode-image {
+    transform: scale(1.03);
+  }
+}
+
+html.desktop-browser
+  :is(
+    .home-poster-card,
+    .library-grid-card,
+    .search-result-card,
+    .seeall-card,
+    .detail-morelike-card
+  ):hover {
+  color: var(--text-color);
+}
+
+.desktop-browser .home-screen-shell.desktop-navigation-enabled.home-layout-modern .home-row-title,
+.desktop-browser .library-shell.desktop-navigation-enabled .library-status-heading,
+.desktop-browser .search-screen-shell.desktop-navigation-enabled .search-results-title {
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+/* Buttons and filters share a quiet surface; primary and destructive colors stay semantic. */
+html.desktop-browser
+  :is(
+    .series-season-btn,
+    .series-season-download-action,
+    .library-picker-anchor,
+    .library-clear-filters,
+    .discover-filter,
+    .stream-route-chip,
+    .player-sources-filter,
+    .player-sources-top-btn,
+    .player-episode-season-tab,
+    .series-secondary-btn,
+    .desktop-addon-action,
+    .desktop-plugin-action
+  ) {
+  background: var(--desktop-surface);
+  color: var(--text-color);
+  border-radius: var(--desktop-radius);
+  box-shadow: none;
+}
+
+.desktop-browser #player :is(.player-sources-filter.selected, .player-episode-season-tab.selected),
+.desktop-browser .library-shell.desktop-navigation-enabled .library-presentation-button.selected,
+.desktop-browser #stream .stream-route-chip.selected {
+  background: var(--desktop-selected);
+  color: var(--text-color);
+}
+
+.desktop-browser #detail .series-season-btn.selected {
+  background: var(--desktop-surface);
+  color: var(--text-color);
+}
+
+.desktop-browser #stream .stream-route-offline-action .material-icons {
+  font-size: 22px;
+}
+
+.desktop-browser .library-shell.desktop-navigation-enabled .library-presentation-toggle {
+  border: 0;
+  background: var(--desktop-surface);
+  border-radius: 16px;
+  padding: 4px;
+}
+
+/* Settings: a sidebar and grouped rows, without multiple nested outlined cards. */
+.desktop-browser .settings-shell .settings-workspace {
+  max-width: none;
+  gap: 32px;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.desktop-browser .settings-shell .settings-sidebar {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 4px;
+}
+
+.desktop-browser .settings-shell .settings-nav-item {
+  min-height: 48px;
+  padding-inline: 16px;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.desktop-browser .settings-shell .settings-nav-item.selected,
+.desktop-browser .settings-shell .settings-nav-item.active {
+  background: var(--desktop-selected);
+  color: var(--text-color);
+}
+
+.desktop-browser .settings-shell .settings-nav-chevron {
+  display: none;
+}
+
+.desktop-browser .settings-shell .settings-title,
+.desktop-browser .library-page-title {
+  font-size: 38px;
+  line-height: 42px;
+  font-weight: 600;
+  letter-spacing: -1.2px;
+}
+
+.desktop-browser .settings-shell .settings-content-header {
+  padding-bottom: 12px;
+}
+
+.desktop-browser .settings-shell :is(.settings-group-card, .settings-subsection-card) {
+  border: 0.5px solid var(--desktop-divider);
+  background: var(--desktop-surface);
+  border-radius: var(--desktop-radius);
+  padding: 8px;
+  box-shadow: none;
+}
+
+.desktop-browser
+  .settings-shell
+  :is(.settings-group-card, .settings-subsection-card)
+  :is(.settings-subsection-card, .settings-group-card) {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.desktop-browser .settings-shell .settings-stack {
+  gap: 4px;
+}
+
+.desktop-browser
+  .settings-shell
+  :is(
+    .settings-action-row,
+    .settings-toggle-row,
+    .settings-collapsible-trigger,
+    .settings-subsection-card .settings-action-row
+  ) {
+  min-height: 68px;
+  padding: 14px 16px;
+  background: transparent;
+  border-radius: 12px;
+}
+
+.desktop-browser .settings-shell .settings-group-heading {
+  padding: 12px 16px 8px;
+}
+
+.desktop-browser .settings-shell .settings-group-title {
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.desktop-browser .settings-shell .settings-row-title {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.desktop-browser .settings-shell .settings-row-subtitle {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-secondary);
+}
+
+.desktop-browser
+  .settings-shell
+  :is(
+    .desktop-addon-card,
+    .desktop-plugin-source,
+    .desktop-home-catalog-row,
+    .settings-fusion-source-card,
+    .desktop-plugin-section
+  ) {
+  border: 0;
+  border-radius: 12px;
+  background: var(--desktop-surface);
+}
+
+/* Search and forms keep a subtle boundary and a visible keyboard focus indicator. */
+html.desktop-browser
+  :is(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  border: 1px solid var(--desktop-divider);
+  border-radius: 12px;
+  background-color: var(--desktop-surface);
+  color: var(--text-color);
+  box-shadow: none !important;
+  font-family: inherit;
+}
+
+.desktop-browser .search-screen-shell.desktop-navigation-enabled .search-input-field {
+  height: 52px;
+  font-size: 16px;
+  border-radius: 16px;
+}
+
+.desktop-browser .search-screen-shell.desktop-navigation-enabled .search-discover-btn {
+  height: 52px;
+  border-radius: 16px;
+}
+
+.search-discover-icon {
+  width: 24px;
+  height: 24px;
+  background: currentColor;
+  mask: url("../assets/icons/discover_compass.svg") center / contain no-repeat;
+  -webkit-mask: url("../assets/icons/discover_compass.svg") center / contain no-repeat;
+}
+
+/* Source selection and player panels use the same surfaces as other menus. */
+.desktop-browser #stream .stream-route-card,
+.desktop-browser #player .player-source-card {
+  border: 0;
+  border-radius: 12px;
+  background: var(--desktop-surface);
+}
+
+.desktop-browser #player :is(.player-modal, .player-sources-panel, .player-episode-panel) {
+  border: 0;
+  border-radius: 24px;
+  background: rgb(26 26 26 / 0.96);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.24);
+}
+
+.desktop-browser
+  #player
+  :is(
+    .player-subtitle-rail,
+    .player-subtitle-language-rail,
+    .player-subtitle-options-rail,
+    .player-subtitle-style-rail
+  ) {
+  border: 0;
+  background: transparent;
+}
+
+.desktop-browser
+  #player
+  :is(
+    .player-dialog-item,
+    .player-dialog-step,
+    .player-dialog-style-reset,
+    .player-dialog-style-item
+  ) {
+  border-color: transparent;
+  border-radius: 12px;
+}
+
+/* Shared dialogs were still using doubled TV dimensions. */
+.desktop-browser .nuvio-dialog-panel {
+  max-width: min(560px, calc(100vw - 32px)) !important;
+  max-height: calc(100dvh - 48px);
+  padding: 24px;
+  gap: 16px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--desktop-surface);
+  overflow-y: auto;
+}
+
+.desktop-browser .nuvio-dialog-title {
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+.desktop-browser :is(.nuvio-dialog-subtitle, .nuvio-dialog-error) {
+  margin-top: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.desktop-browser .nuvio-dialog-actions {
+  gap: 8px;
+}
+
+.desktop-browser .poster-list-picker-actions {
+  margin-inline: 0;
+  padding: 4px;
+}
+
+html.desktop-browser .nuvio-dialog-button.focused {
+  transform: none;
+}
+
+.desktop-browser
+  .settings-shell
+  :is(.settings-dialog, .settings-text-dialog, .settings-p2p-consent-dialog) {
+  border: 0;
+  border-radius: 24px;
+  background: var(--desktop-surface);
+}
+
+html.desktop-browser .settings-shell .settings-dialog .settings-dialog-option {
+  background: transparent;
+  color: var(--text-color);
+}
+
+html.desktop-browser .settings-shell .settings-dialog .settings-dialog-option.is-selected {
+  background: var(--desktop-selected);
+  color: var(--text-color);
+}
+
+html.desktop-browser
+  .settings-shell
+  .settings-dialog
+  .settings-hero-catalog-option
+  .settings-hero-catalog-meta {
+  color: var(--text-secondary);
+}
+
+.desktop-browser .nuvio-dialog-button {
+  min-height: 44px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .desktop-browser
+    .settings-shell
+    :is(
+      .settings-nav-item,
+      .settings-action-row,
+      .settings-toggle-row,
+      .settings-collapsible-trigger
+    ):hover,
+  .desktop-browser #stream .stream-route-card:hover,
+  .desktop-browser #player .player-source-card:hover {
+    background: var(--desktop-hover);
+  }
+}
+
+@media (max-width: 900px) {
+  .desktop-browser .settings-shell .settings-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .desktop-browser .settings-shell .settings-nav-item {
+    min-height: 44px;
+  }
+
+  .desktop-browser .settings-shell .settings-title,
+  .desktop-browser .library-shell.desktop-navigation-enabled .library-page-title {
+    font-size: 32px;
+    line-height: 36px;
+  }
+
+  .desktop-browser .nuvio-dialog-panel {
+    padding: 20px;
+    max-height: calc(
+      100dvh - var(--browser-safe-area-top) - var(--browser-safe-area-bottom) - 24px
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.desktop-browser {
+    --desktop-motion: 0ms;
+  }
+}
+
+@media (max-width: 600px) {
+  .desktop-browser #stream {
+    overflow-x: hidden;
+  }
+
+  .desktop-browser #stream .stream-route-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .desktop-browser #stream .stream-route-card-copy {
+    grid-column: 1 / -1;
+  }
+
+  .desktop-browser #stream .stream-route-card-side {
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .desktop-browser #stream .stream-route-addon-badge {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border: 0;
+  }
+
+  .desktop-browser #stream .stream-route-addon-badge span {
+    font-size: 14px;
+  }
+
+  .desktop-browser #stream .stream-route-offline-actions {
+    grid-column: 2;
+    margin: 0;
+  }
+
+  .desktop-browser #stream .stream-route-offline-action {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .desktop-browser #detail .series-detail-actions {
+    padding: 0;
+  }
+
+  .desktop-browser #detail .series-primary-btn {
+    flex: 1;
+  }
+
+  .desktop-browser #detail .series-detail-shell {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .desktop-browser .library-shell.desktop-navigation-enabled .library-picker-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .desktop-browser .library-shell.desktop-navigation-enabled .library-presentation-toggle {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Phone settings follow NuvioMobile's grouped index and separate detail pages. */
+.settings-mobile-title {
+  display: none;
+}
+.desktop-browser .settings-shell .settings-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.desktop-browser .settings-shell .settings-dialog-done,
+.desktop-browser .settings-shell .settings-mobile-back {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--desktop-selected);
+  color: var(--text-color);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.desktop-browser .settings-shell .settings-dialog-done:focus-visible,
+.desktop-browser .settings-shell .settings-mobile-back:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: 2px;
+}
+.desktop-browser .settings-shell .settings-dialog-done:active {
+  opacity: 0.7;
+}
+.desktop-browser .settings-shell .settings-language-option-check {
+  display: inline-flex;
+  justify-content: center;
+  flex: 0 0 24px;
+  color: var(--text-color);
+}
+@media (max-width: 600px) {
+  .desktop-browser .settings-shell .settings-workspace {
+    display: block;
+    padding: calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 96px);
+  }
+  .desktop-browser .settings-shell[data-mobile-page="index"] .settings-content-frame,
+  .desktop-browser .settings-shell[data-mobile-page="section"] .settings-sidebar-frame {
+    display: none;
+  }
+  .desktop-browser .settings-shell .settings-mobile-title {
+    display: block;
+    margin: 0 0 24px;
+    font-size: 30px;
+    line-height: 36px;
+    font-weight: 600;
+  }
+  .desktop-browser .settings-shell .settings-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    gap: 24px;
+  }
+  .desktop-browser .settings-shell .settings-mobile-group h2 {
+    margin: 0 0 8px 12px;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .desktop-browser .settings-shell .settings-mobile-group > div {
+    padding: 4px;
+    border-radius: 16px;
+    background: var(--desktop-surface);
+  }
+  .desktop-browser .settings-shell .settings-nav-item {
+    display: flex;
+    width: 100%;
+    min-height: 72px;
+    padding: 12px;
+    gap: 12px;
+    white-space: normal;
+    text-align: left;
+    background: transparent;
+    color: var(--text-color);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .desktop-browser .settings-shell .settings-nav-item:active {
+    background: var(--desktop-selected);
+  }
+  .desktop-browser .settings-shell .settings-nav-leading {
+    min-width: 0;
+    flex: 1;
+    gap: 16px;
+  }
+  .desktop-browser .settings-shell .settings-nav-label-wrap {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+  .desktop-browser .settings-shell .settings-nav-label {
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .desktop-browser .settings-shell .settings-nav-subtitle {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 400;
+    overflow-wrap: anywhere;
+  }
+  .desktop-browser .settings-shell .settings-nav-chevron {
+    display: block;
+    flex-shrink: 0;
+  }
+  .desktop-browser .settings-shell .settings-mobile-back {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    gap: 4px;
+    padding-left: 0;
+    margin-bottom: 8px;
+    background: transparent;
+  }
+  .desktop-browser .settings-shell .settings-mobile-back svg {
+    transform: rotate(180deg);
+  }
+  .desktop-browser .settings-shell .settings-title {
+    font-size: 24px;
+    line-height: 32px;
+  }
+  .desktop-browser .settings-shell .settings-content {
+    padding: 0;
+    overflow: visible;
+  }
+  .desktop-browser .settings-shell .settings-account-status-card {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 4px 12px;
+  }
+  .desktop-browser .settings-shell .settings-account-status-icon {
+    grid-row: span 2;
+  }
+  .desktop-browser .settings-shell .settings-account-status-value {
+    grid-column: 2;
+  }
+  .desktop-browser .settings-shell .settings-account-card {
+    padding: 12px;
+  }
+  .desktop-browser .settings-shell .settings-dialog-backdrop {
+    align-items: flex-end;
+    padding: max(16px, env(safe-area-inset-top)) 0 0;
+  }
+  .desktop-browser .settings-shell .settings-dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 16px);
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0;
+    gap: 16px;
+    overflow: hidden;
+  }
+  .desktop-browser .settings-shell .settings-dialog-list {
+    min-height: 0;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 144px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: 4px;
+  }
+  .desktop-browser .settings-shell .settings-dialog-option {
+    -webkit-tap-highlight-color: transparent;
+  }
+  html.desktop-browser
+    .settings-shell
+    .settings-dialog-option.focused:not(:focus-visible):not(.is-selected) {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .desktop-browser .settings-shell .settings-account-sync-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 8px;
+  }
+  .desktop-browser .settings-shell .settings-account-stat small {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+}
+
+/* Season artwork shares the detail page's existing horizontal rail. */
+.desktop-browser #detail .series-seasons-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 clamp(20px, 3.4vw, 64px) 8px;
+}
+.desktop-browser #detail .series-seasons-header .series-seasons-heading {
+  padding: 0;
+}
+.desktop-browser #detail .series-season-view-toggle {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: var(--desktop-surface);
+  font-size: 14px;
+}
+.desktop-browser #detail .series-season-view-toggle:hover {
+  color: var(--text-color);
+  background: var(--desktop-hover);
+}
+.desktop-browser #detail .series-season-poster-btn {
+  flex: 0 0 140px;
+  width: 140px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 0 4px;
+  background: transparent;
+  border-radius: 12px;
+  line-height: 20px;
+}
+.desktop-browser #detail .series-season-poster-btn.selected {
+  background: transparent;
+}
+.desktop-browser #detail .series-season-artwork {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--desktop-surface);
+  color: var(--text-secondary);
+  font-size: 24px;
+}
+.desktop-browser #detail .series-season-artwork img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.desktop-browser #detail .series-season-poster-btn .series-season-artwork::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+  pointer-events: none;
+}
+.desktop-browser #detail .series-season-poster-btn.selected .series-season-artwork::after {
+  box-shadow: inset 0 0 0 2px var(--text-color);
+}
+.desktop-browser #detail .series-season-poster-btn:hover {
+  background: transparent;
+  color: var(--text-color);
+}
+.desktop-browser #detail .series-season-poster-btn:hover .series-season-artwork::after {
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 55%);
+}
+.desktop-browser #detail .series-season-label {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+@media (max-width: 600px) {
+  .desktop-browser #detail .series-seasons-header {
+    padding-inline: 16px;
+  }
+  .desktop-browser #detail .series-season-poster-btn {
+    flex-basis: 104px;
+    width: 104px;
+    font-size: 14px;
+  }
+}
+
+/* Calendar uses the existing browser surfaces, typography and navigation. */
+.desktop-browser .library-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.desktop-browser .library-calendar-button {
+  gap: 8px;
+  flex-shrink: 0;
+}
+.desktop-browser .calendar-main {
+  padding: 112px clamp(20px, 3.4vw, 64px) 48px;
+  min-height: 100dvh;
+}
+.desktop-browser .calendar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.desktop-browser .calendar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.desktop-browser .calendar-heading h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 600;
+}
+.desktop-browser .calendar-heading p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-secondary);
+}
+.desktop-browser .calendar-toolbar,
+.desktop-browser .calendar-month-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.desktop-browser .calendar-toolbar {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.desktop-browser .calendar-month-controls h2 {
+  min-width: 200px;
+  margin: 0;
+  text-align: center;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+}
+.desktop-browser .calendar-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--text-color);
+  background: var(--desktop-surface);
+  font-size: 14px;
+}
+.desktop-browser .calendar-button .material-icons {
+  font-size: 24px;
+}
+.desktop-browser .calendar-button:hover:not(:disabled) {
+  background: var(--desktop-hover);
+}
+.desktop-browser .calendar-back-button {
+  display: none;
+  flex-shrink: 0;
+}
+.desktop-browser .calendar-status {
+  min-height: 20px;
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+.desktop-browser .calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: 24px;
+}
+.desktop-browser .calendar-board,
+.desktop-browser .calendar-agenda {
+  padding: 16px;
+  border-radius: var(--desktop-radius);
+  background: var(--desktop-surface);
+  min-width: 0;
+}
+.desktop-browser .calendar-weekdays,
+.desktop-browser .calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.desktop-browser .calendar-weekdays {
+  padding: 4px 0 12px;
+}
+.desktop-browser .calendar-weekdays abbr {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  text-decoration: none;
+}
+.desktop-browser .calendar-day {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+  height: clamp(88px, 9vw, 144px);
+  padding: 8px;
+  border: 0;
+  border-radius: 12px;
+  text-align: left;
+  background: transparent;
+  color: var(--text-color);
+}
+.desktop-browser .calendar-day:hover {
+  background: var(--desktop-hover);
+}
+.desktop-browser .calendar-day.is-selected {
+  background: var(--desktop-selected);
+}
+.desktop-browser .calendar-day-number {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.desktop-browser .calendar-day.is-today .calendar-day-number {
+  color: var(--on-secondary);
+  background: var(--secondary-color);
+}
+.desktop-browser .calendar-count {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.desktop-browser .calendar-thumbnails {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 4px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.desktop-browser .calendar-thumbnails img {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.desktop-browser .calendar-agenda h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.desktop-browser .calendar-releases {
+  display: grid;
+  gap: 8px;
+}
+.desktop-browser .calendar-release {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  text-align: left;
+  color: var(--text-color);
+  background: transparent;
+}
+.desktop-browser .calendar-release:hover {
+  background: var(--desktop-hover);
+}
+.desktop-browser .calendar-release-artwork {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  height: 84px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+.desktop-browser .calendar-release-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.desktop-browser .calendar-release-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-secondary);
+}
+.desktop-browser .calendar-release-copy strong {
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--text-color);
+  font-weight: 600;
+}
+.desktop-browser .calendar-release-copy span {
+  font-weight: 400;
+}
+.desktop-browser .calendar-release > .material-icons {
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+.desktop-browser .calendar-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+@media (max-width: 1000px) {
+  .desktop-browser .calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .desktop-browser .library-calendar-label {
+    display: none;
+  }
+  .desktop-browser .library-calendar-button {
+    width: 44px;
+    padding: 8px;
+  }
+  .desktop-browser .calendar-main {
+    padding: calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 104px);
+  }
+  .desktop-browser .calendar-heading {
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+  .desktop-browser .calendar-back-button {
+    display: inline-flex;
+  }
+  .desktop-browser .calendar-heading h1 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+  .desktop-browser .calendar-month-controls {
+    gap: 4px;
+  }
+  .desktop-browser .calendar-month-controls h2 {
+    min-width: 0;
+    font-size: 18px;
+    line-height: 24px;
+  }
+  .desktop-browser .calendar-toolbar {
+    gap: 8px;
+  }
+  .desktop-browser .calendar-board {
+    padding: 8px;
+  }
+  .desktop-browser .calendar-grid {
+    gap: 2px;
+  }
+  .desktop-browser .calendar-day {
+    height: 64px;
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .desktop-browser .calendar-count {
+    top: auto;
+    bottom: 8px;
+    left: 4px;
+    right: 4px;
+    text-align: center;
+    line-height: 12px;
+  }
+  .desktop-browser .calendar-thumbnails {
+    display: none;
+  }
+  .desktop-browser .calendar-day-number {
+    width: 100%;
+    max-width: 28px;
+    margin-inline: auto;
+  }
+  .desktop-browser .calendar-status {
+    font-size: 12px;
+  }
+}
+
+.desktop-browser .settings-shell .settings-episode-notifications {
+  margin-top: 16px;
+}
+.desktop-browser .settings-shell .settings-episode-notifications h3 {
+  margin: 4px 14px 12px;
+  font-size: 18px;
+}

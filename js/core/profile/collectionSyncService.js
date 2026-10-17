@@ -68,7 +68,10 @@ export const CollectionSyncService = {
     const resolvedProfileId = resolveProfileId(profileId);
     try {
       const syncContext = context || (await SyncHydrationState.capture(resolvedProfileId));
-      if (automatic && !(await SyncHydrationState.allowsAutomaticPush(syncContext, "collections"))) {
+      if (
+        automatic &&
+        !(await SyncHydrationState.allowsAutomaticPush(syncContext, "collections"))
+      ) {
         console.info("[Sync] collections automatic push blocked", {
           hydration: SyncHydrationState.get(syncContext, "collections")
         });
@@ -100,7 +103,10 @@ export const CollectionSyncService = {
     const syncContext = context || (await SyncHydrationState.capture(resolvedProfileId));
     try {
       if (!(await SyncHydrationState.beginPull(syncContext, "collections"))) {
-        return { result: SyncPullResult.FAILED, items: CollectionsStore.getForProfile(resolvedProfileId) };
+        return {
+          result: SyncPullResult.FAILED,
+          items: CollectionsStore.getForProfile(resolvedProfileId)
+        };
       }
       const rows = await SupabaseApi.rpc(
         PULL_RPC,
@@ -110,12 +116,18 @@ export const CollectionSyncService = {
         true
       );
       if (!(await SyncHydrationState.isCurrent(syncContext))) {
-        return { result: SyncPullResult.FAILED, items: CollectionsStore.getForProfile(resolvedProfileId) };
+        return {
+          result: SyncPullResult.FAILED,
+          items: CollectionsStore.getForProfile(resolvedProfileId)
+        };
       }
       const blob = Array.isArray(rows) ? rows[0] || null : rows || null;
       if (!blob) {
         await SyncHydrationState.completePull(syncContext, "collections", SyncPullResult.FAILED);
-        return { result: SyncPullResult.FAILED, items: CollectionsStore.getForProfile(resolvedProfileId) };
+        return {
+          result: SyncPullResult.FAILED,
+          items: CollectionsStore.getForProfile(resolvedProfileId)
+        };
       }
 
       const remoteCollections = parseRemoteCollectionsPayload(blob);
@@ -136,19 +148,26 @@ export const CollectionSyncService = {
       if (stableStringify(resolvedCollections) !== stableStringify(localCollections)) {
         this.syncingFromRemoteProfiles.add(resolvedProfileId);
         try {
-          CollectionsStore.replaceForProfile(resolvedProfileId, resolvedCollections, { silentSync: true });
+          CollectionsStore.replaceForProfile(resolvedProfileId, resolvedCollections, {
+            silentSync: true
+          });
         } finally {
           this.syncingFromRemoteProfiles.delete(resolvedProfileId);
         }
       }
 
-      const result = remoteCollections.length ? SyncPullResult.SUCCESS_WITH_DATA : SyncPullResult.SUCCESS_EMPTY;
+      const result = remoteCollections.length
+        ? SyncPullResult.SUCCESS_WITH_DATA
+        : SyncPullResult.SUCCESS_EMPTY;
       await SyncHydrationState.completePull(syncContext, "collections", result);
       return { result, items: resolvedCollections };
     } catch (error) {
       console.warn("Collection sync pull failed", error);
       await SyncHydrationState.completePull(syncContext, "collections", SyncPullResult.FAILED);
-      return { result: SyncPullResult.FAILED, items: CollectionsStore.getForProfile(resolvedProfileId) };
+      return {
+        result: SyncPullResult.FAILED,
+        items: CollectionsStore.getForProfile(resolvedProfileId)
+      };
     }
   },
 

@@ -55,7 +55,7 @@ const KEY_ALIASES = {
   // targets are translated everywhere the alias is not, so pointing at them
   // costs nothing and gives every locale the string it already has.
   "nav.settings": "nav_settings",
-  "home_view_details": "common.viewDetails",
+  home_view_details: "common.viewDetails",
   "settings.account.signInWithQr": "account_signin_qr_title",
   "settings.account.signInWithQrSubtitle": "account_signin_qr_subtitle",
   "settings.account.signOut": "account_sign_out",
@@ -381,14 +381,14 @@ const KEY_ALIASES = {
   "common.close": "action_close",
   "settings.tracking.openSettings": "settings_tracking_title",
   "settings.tracking.openSettingsSubtitle": "settings_tracking_description",
-  "layout_hero_catalog": "layout_hero_catalogs",
-  "layout_hero_catalog_sub": "layout_hero_catalogs_sub",
-  "tracking_more_like_this_source": "trakt_more_like_this_source_title",
-  "tracking_more_like_this_source_subtitle": "trakt_more_like_this_source_subtitle",
-  "trakt_connect": "trakt_login",
-  "trakt_days": "trakt_days_format",
-  "trakt_generate_code": "sync_generate_code_btn",
-  "trakt_watch_progress_source_title": "trakt_watch_progress_title"
+  layout_hero_catalog: "layout_hero_catalogs",
+  layout_hero_catalog_sub: "layout_hero_catalogs_sub",
+  tracking_more_like_this_source: "trakt_more_like_this_source_title",
+  tracking_more_like_this_source_subtitle: "trakt_more_like_this_source_subtitle",
+  trakt_connect: "trakt_login",
+  trakt_days: "trakt_days_format",
+  trakt_generate_code: "sync_generate_code_btn",
+  trakt_watch_progress_source_title: "trakt_watch_progress_title"
 };
 
 const warnedKeys = new Set();

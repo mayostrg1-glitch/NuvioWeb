@@ -24,20 +24,34 @@ export function createOfflineEpisodeEntries(downloads = []) {
   (Array.isArray(downloads) ? downloads : []).forEach((download) => {
     const season = Number(download?.seasonNumber);
     const episode = Number(download?.episodeNumber);
-    if (!Number.isInteger(season) || season < 0 || !Number.isInteger(episode) || episode <= 0) return;
+    if (!Number.isInteger(season) || season < 0 || !Number.isInteger(episode) || episode <= 0)
+      return;
     const key = `${season}:${episode}`;
     const current = byEpisode.get(key);
     if (current && Number(current.completedAt || 0) >= Number(download?.completedAt || 0)) return;
     byEpisode.set(key, {
-      id: text(download?.episodeId) || `offline:${text(download?.mediaIdentity || download?.downloadId)}`,
-      title: text(download?.displaySnapshot?.episode?.title || download?.title) || `Episode ${episode}`,
+      id:
+        text(download?.episodeId) ||
+        `offline:${text(download?.mediaIdentity || download?.downloadId)}`,
+      title:
+        text(download?.displaySnapshot?.episode?.title || download?.title) || `Episode ${episode}`,
       seriesId: text(download?.seriesId),
       seriesTitle: text(download?.seriesTitle),
       season,
       episode,
       thumbnail: text(download?.displaySnapshot?.episode?.still) || null,
-      overview: text(download?.displaySnapshot?.episode?.overview || download?.episodeOverview || download?.description),
-      runtimeMinutes: Number(download?.displaySnapshot?.episode?.runtimeMinutes || download?.episodeRuntimeMinutes || download?.runtimeMinutes || 0) || 0,
+      overview: text(
+        download?.displaySnapshot?.episode?.overview ||
+          download?.episodeOverview ||
+          download?.description
+      ),
+      runtimeMinutes:
+        Number(
+          download?.displaySnapshot?.episode?.runtimeMinutes ||
+            download?.episodeRuntimeMinutes ||
+            download?.runtimeMinutes ||
+            0
+        ) || 0,
       released: text(download?.displaySnapshot?.episode?.released),
       available: true,
       offlineDownloadId: text(download?.downloadId),
@@ -86,7 +100,8 @@ export function mergeDetailEpisodesWithOfflineDownloads(
   const all = [...merged, ...offlineByKey.values()];
   const kept = offlineOnly ? all.filter((episode) => Boolean(episode?.offlineDownloadId)) : all;
   return kept.sort(
-    (left, right) => Number(left?.season) - Number(right?.season) || Number(left?.episode) - Number(right?.episode)
+    (left, right) =>
+      Number(left?.season) - Number(right?.season) || Number(left?.episode) - Number(right?.episode)
   );
 }
 

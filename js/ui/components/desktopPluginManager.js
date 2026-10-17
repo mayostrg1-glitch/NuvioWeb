@@ -62,8 +62,7 @@ export function createDesktopPluginManager({ requestRender } = {}) {
       let synced = true;
       do {
         state.syncPending = false;
-        synced =
-          (await PluginSyncService.push({ automatic: true })) && synced;
+        synced = (await PluginSyncService.push({ automatic: true })) && synced;
       } while (state.syncPending);
       return synced;
     };
@@ -131,7 +130,9 @@ export function createDesktopPluginManager({ requestRender } = {}) {
     const before = PluginManager.listPluginSources();
     PluginManager.setPluginSourceEnabled(sourceId, source.enabled === false);
     loadSources();
-    setStatus(`${source.name || "Plugin source"} ${source.enabled === false ? "enabled" : "disabled"} locally.`);
+    setStatus(
+      `${source.name || "Plugin source"} ${source.enabled === false ? "enabled" : "disabled"} locally.`
+    );
     await rerender();
     PluginSyncService.recordLocalMutation(null, before, PluginManager.listPluginSources());
     await syncSources(before);
@@ -282,7 +283,10 @@ export function createDesktopPluginManager({ requestRender } = {}) {
         void setPluginsEnabled(Boolean(event.target?.checked));
       });
       container.querySelectorAll("[data-plugin-source-toggle]").forEach((node) => {
-        node.addEventListener("change", () => void setSourceEnabled(state.sources[Number(node.dataset.pluginSourceToggle || -1)]));
+        node.addEventListener(
+          "change",
+          () => void setSourceEnabled(state.sources[Number(node.dataset.pluginSourceToggle || -1)])
+        );
       });
       container.querySelectorAll("[data-plugin-source-remove]").forEach((node) => {
         node.addEventListener("click", () => {
@@ -294,13 +298,17 @@ export function createDesktopPluginManager({ requestRender } = {}) {
         state.removeTarget = null;
         void rerender();
       });
-      container.querySelector("[data-plugin-remove-confirm]")?.addEventListener("click", () => void confirmRemove());
-      container.querySelector("[data-plugin-dialog-backdrop]")?.addEventListener("click", (event) => {
-        if (event.target === event.currentTarget) {
-          state.removeTarget = null;
-          void rerender();
-        }
-      });
+      container
+        .querySelector("[data-plugin-remove-confirm]")
+        ?.addEventListener("click", () => void confirmRemove());
+      container
+        .querySelector("[data-plugin-dialog-backdrop]")
+        ?.addEventListener("click", (event) => {
+          if (event.target === event.currentTarget) {
+            state.removeTarget = null;
+            void rerender();
+          }
+        });
     },
 
     async handleKeyDown(event) {

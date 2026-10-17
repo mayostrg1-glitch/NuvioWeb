@@ -17,7 +17,9 @@ function posterUrl(path) {
 
 function mergeCredit(current, candidate) {
   if (!current) return candidate;
-  const roles = [...new Set([...(current.roles || []), ...(candidate.roles || [])].filter(Boolean))];
+  const roles = [
+    ...new Set([...(current.roles || []), ...(candidate.roles || [])].filter(Boolean))
+  ];
   const preferCandidate =
     (candidate.kind === "cast" && current.kind !== "cast") ||
     (!current.poster && Boolean(candidate.poster));
@@ -32,27 +34,59 @@ export function normalizePersonCredits(combinedCredits = {}) {
     const id = Number(credit?.id);
     const title = String(credit?.title || credit?.name || "").trim();
     if (!Number.isFinite(id) || id <= 0 || !title || !["movie", "tv"].includes(rawType)) return;
-    const role = String(kind === "cast" ? credit?.character || "" : credit?.job || credit?.department || "").trim();
+    const role = String(
+      kind === "cast" ? credit?.character || "" : credit?.job || credit?.department || ""
+    ).trim();
     entries.push({
-      key: `${rawType}:${id}`, tmdbId: String(id), itemId: `tmdb:${id}`, type: normalizeMediaType(rawType),
-      title, poster: posterUrl(credit?.poster_path), releaseDate: dateForCredit(credit),
-      popularity: Number(credit?.popularity || 0), voteCount: Number(credit?.vote_count || 0),
-      rating: Number(credit?.vote_average || 0), kind, role, roles: role ? [role] : []
+      key: `${rawType}:${id}`,
+      tmdbId: String(id),
+      itemId: `tmdb:${id}`,
+      type: normalizeMediaType(rawType),
+      title,
+      poster: posterUrl(credit?.poster_path),
+      releaseDate: dateForCredit(credit),
+      popularity: Number(credit?.popularity || 0),
+      voteCount: Number(credit?.vote_count || 0),
+      rating: Number(credit?.vote_average || 0),
+      kind,
+      role,
+      roles: role ? [role] : []
     });
   };
-  (Array.isArray(combinedCredits?.cast) ? combinedCredits.cast : []).forEach((credit) => add(credit, "cast"));
-  (Array.isArray(combinedCredits?.crew) ? combinedCredits.crew : []).forEach((credit) => add(credit, "crew"));
+  (Array.isArray(combinedCredits?.cast) ? combinedCredits.cast : []).forEach((credit) =>
+    add(credit, "cast")
+  );
+  (Array.isArray(combinedCredits?.crew) ? combinedCredits.crew : []).forEach((credit) =>
+    add(credit, "crew")
+  );
   const byIdentity = new Map();
-  entries.forEach((entry) => byIdentity.set(entry.key, mergeCredit(byIdentity.get(entry.key), entry)));
+  entries.forEach((entry) =>
+    byIdentity.set(entry.key, mergeCredit(byIdentity.get(entry.key), entry))
+  );
   return [...byIdentity.values()];
 }
 
 export function sortPersonCreditsByPopularity(credits = []) {
-  return [...credits].sort((left, right) => right.popularity - left.popularity || right.voteCount - left.voteCount || right.rating - left.rating || String(right.releaseDate).localeCompare(String(left.releaseDate)));
+  return [...credits].sort(
+    (left, right) =>
+      right.popularity - left.popularity ||
+      right.voteCount - left.voteCount ||
+      right.rating - left.rating ||
+      String(right.releaseDate).localeCompare(String(left.releaseDate))
+  );
 }
 
-export function sortPersonCreditsByLatest(credits = [], today = new Date().toISOString().slice(0, 10)) {
-  return [...credits].filter((credit) => credit.releaseDate && credit.releaseDate <= today).sort((left, right) => String(right.releaseDate).localeCompare(String(left.releaseDate)) || right.popularity - left.popularity);
+export function sortPersonCreditsByLatest(
+  credits = [],
+  today = new Date().toISOString().slice(0, 10)
+) {
+  return [...credits]
+    .filter((credit) => credit.releaseDate && credit.releaseDate <= today)
+    .sort(
+      (left, right) =>
+        String(right.releaseDate).localeCompare(String(left.releaseDate)) ||
+        right.popularity - left.popularity
+    );
 }
 
 export function calculatePersonAge(birthday = "", deathday = "", now = new Date()) {
@@ -61,6 +95,10 @@ export function calculatePersonAge(birthday = "", deathday = "", now = new Date(
   const end = deathday ? new Date(`${String(deathday).trim()}T00:00:00`) : now;
   if (Number.isNaN(end.getTime()) || end < birth) return null;
   let age = end.getFullYear() - birth.getFullYear();
-  if (end.getMonth() < birth.getMonth() || (end.getMonth() === birth.getMonth() && end.getDate() < birth.getDate())) age -= 1;
+  if (
+    end.getMonth() < birth.getMonth() ||
+    (end.getMonth() === birth.getMonth() && end.getDate() < birth.getDate())
+  )
+    age -= 1;
   return age >= 0 ? age : null;
 }

@@ -5,7 +5,11 @@ import { BrowserPullToRefresh } from "./browserPullToRefresh.js";
 test("pull refresh chooses the active scroll owner before a merely scrollable fallback", () => {
   const html = { scrollTop: 0, scrollHeight: 1000, clientHeight: 600 };
   const body = { scrollTop: 120, scrollHeight: 1000, clientHeight: 600 };
-  const owner = BrowserPullToRefresh.getScrollOwner({ scrollingElement: html, body, documentElement: html });
+  const owner = BrowserPullToRefresh.getScrollOwner({
+    scrollingElement: html,
+    body,
+    documentElement: html
+  });
   assert.equal(owner, body);
 });
 

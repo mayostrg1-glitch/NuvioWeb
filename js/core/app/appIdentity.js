@@ -3,14 +3,16 @@
 const FALLBACK_IDENTITY = {
   name: "NuvioWeb",
   version: "0.0.0",
+  channel: "development",
+  revision: "",
   upstreamVersion: "0.3.35",
-  maintainer: "alphasquare",
-  sourceRepositoryUrl: "https://github.com/alphasquare404/NuvioWeb",
-  issuesUrl: "https://github.com/alphasquare404/NuvioWeb/issues",
-  contributorsUrl: "https://github.com/alphasquare404/NuvioWeb/graphs/contributors",
-  licenseUrl: "https://github.com/alphasquare404/NuvioWeb/blob/main/LICENSE",
-  upstreamRepositoryUrl: "https://github.com/NuvioMedia/NuvioWeb",
-  latestReleaseUrl: "https://api.github.com/repos/alphasquare404/NuvioWeb/releases/latest"
+  maintainer: "falcononrails",
+  sourceRepositoryUrl: "https://github.com/falcononrails/NuvioWeb",
+  issuesUrl: "https://github.com/falcononrails/NuvioWeb/issues",
+  contributorsUrl: "https://github.com/falcononrails/NuvioWeb/graphs/contributors",
+  licenseUrl: "https://github.com/falcononrails/NuvioWeb/blob/nightly/LICENSE",
+  upstreamRepositoryUrl: "https://github.com/alphasquare404/NuvioWeb",
+  latestReleaseUrl: "https://api.github.com/repos/falcononrails/NuvioWeb/releases/latest"
 };
 
 function text(value, fallback = "") {
@@ -31,13 +33,18 @@ export function createAppIdentity(raw = {}) {
   return Object.freeze({
     name: text(raw.name, FALLBACK_IDENTITY.name),
     version: text(raw.version, FALLBACK_IDENTITY.version),
+    channel: ["nightly", "beta", "stable"].includes(raw.channel) ? raw.channel : "development",
+    revision: /^[a-f0-9]{40}$/i.test(String(raw.revision || "")) ? String(raw.revision) : "",
     upstreamVersion: text(raw.upstreamVersion, FALLBACK_IDENTITY.upstreamVersion),
     maintainer: text(raw.maintainer, FALLBACK_IDENTITY.maintainer),
     sourceRepositoryUrl: httpsUrl(raw.sourceRepositoryUrl, FALLBACK_IDENTITY.sourceRepositoryUrl),
     issuesUrl: httpsUrl(raw.issuesUrl, FALLBACK_IDENTITY.issuesUrl),
     contributorsUrl: httpsUrl(raw.contributorsUrl, FALLBACK_IDENTITY.contributorsUrl),
     licenseUrl: httpsUrl(raw.licenseUrl, FALLBACK_IDENTITY.licenseUrl),
-    upstreamRepositoryUrl: httpsUrl(raw.upstreamRepositoryUrl, FALLBACK_IDENTITY.upstreamRepositoryUrl),
+    upstreamRepositoryUrl: httpsUrl(
+      raw.upstreamRepositoryUrl,
+      FALLBACK_IDENTITY.upstreamRepositoryUrl
+    ),
     latestReleaseUrl: httpsUrl(raw.latestReleaseUrl, FALLBACK_IDENTITY.latestReleaseUrl)
   });
 }

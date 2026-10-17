@@ -2,11 +2,159 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { browserSourceWarnings } from "../../../core/player/browserMediaSupport.js";
+import { PlayerController } from "../../../core/player/playerController.js";
+import { renderBrowserSourceWarnings } from "../../components/browserStreamSourceCard.js";
 
 const playerScreenUrl = new URL("./playerScreen.js", import.meta.url);
 const desktopCssUrl = new URL("../../../../css/desktop.css", import.meta.url);
 const componentsCssUrl = new URL("../../../../css/components.css", import.meta.url);
 const dialogUrl = new URL("../../components/nuvioDialog.js", import.meta.url);
+
+test("startup and source switching show the same actionable resolver error without claiming a refresh", async () => {
+  const { debridResolveErrorMessage } =
+    await import("../../../core/debrid/directDebridResolver.js");
+  const source = await readFile(playerScreenUrl, "utf8");
+  const method = source.match(/  async playStreamCandidate\([\s\S]*?\n  \},/)[0];
+  const candidate = { id: "torrentio", name: "TB Instant" };
+  for (const status of ["service_unavailable", "service_degraded", "auth_failed", "stale"]) {
+    const result = { status, detail: "TorBox torrent/create: HTTP 404." };
+    const screen = vm.runInNewContext(`({${method}})`, {
+      Environment: { isBrowser: () => true },
+      streamMergeKey: (entry) => entry.id,
+      streamDirectPlaybackUrl: () => "",
+      debridResolveErrorMessage,
+      DirectDebridResolver: { canResolveStream: () => true, resolve: async () => result }
+    });
+    let displayed;
+    Object.assign(screen, {
+      isActiveMountToken: () => true,
+      streamCandidates: [candidate],
+      showStartupError: (message, details) => {
+        displayed = { message, details };
+      },
+      formatPlaybackErrorForSources: (message, details) => {
+        displayed = { message, details };
+        return message;
+      },
+      renderSourcesPanel() {},
+      playStreamByUrl: () => assert.fail("Do not play an unresolved source")
+    });
+    for (const hasPresentedPlaybackFrame of [false, true]) {
+      screen.hasPresentedPlaybackFrame = hasPresentedPlaybackFrame;
+      await screen.playStreamCandidate(candidate);
+      assert.equal(displayed.message, debridResolveErrorMessage(result));
+      assert.equal(displayed.details.resolverStatus, status);
+      assert.equal(displayed.details.streamCandidate, candidate);
+      assert.doesNotMatch(displayed.message, /expired|refreshing/i);
+    }
+  }
+});
+
+test("a failed source resolution reports its own HTTP error without the previous media URL", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const helpers = source.slice(
+    source.indexOf("function cleanPlaybackDiagnosticValue("),
+    source.indexOf("function formatEpisodePanelDate(")
+  );
+  const method = source.match(/  getPlaybackErrorDetailLines\([\s\S]*?\n  \},/)[0];
+  const screen = vm.runInNewContext(`${helpers}\n({${method}})`, {
+    URL,
+    PlayerController: {
+      video: {
+        currentSrc: "https://pengu.example/old.mp4?token=secret",
+        readyState: 0,
+        error: { message: "Previous HTTP 403" }
+      },
+      playbackEngine: "native",
+      getLastHlsErrorDetail: () => "Previous HTTP 403"
+    }
+  });
+  Object.assign(screen, {
+    activePlaybackUrl: "https://pengu.example/old.mp4?token=secret",
+    getPlaybackEventErrorDetail: () => "",
+    getPlaybackErrorCodeLabel: () => "none"
+  });
+  const details = screen
+    .getPlaybackErrorDetailLines({
+      streamCandidate: { addonName: "Torrentio", name: "4K TB Instant" },
+      reason: "stream-resolve",
+      resolverStatus: "service_unavailable",
+      resolverDetail: "TorBox torrent/create: HTTP 404."
+    })
+    .join("\n");
+  assert.match(details, /HTTP status: 404/);
+  assert.match(details, /Selected source: Torrentio \/ 4K TB Instant/);
+  assert.match(details, /Selected source endpoint: not resolved/);
+  assert.doesNotMatch(details, /pengu|secret|403|Playback engine|HTML media error/i);
+  const playback = screen
+    .getPlaybackErrorDetailLines({
+      streamCandidate: { url: "https://selected.example/new.mkv?token=secret" }
+    })
+    .join("\n");
+  assert.match(playback, /Selected source endpoint: selected.example/);
+  assert.match(playback, /Loaded media: pengu.example/);
+  assert.doesNotMatch(playback, /secret/);
+});
+
+test("source cards hide speculative audio badges without disabling audio recovery", () => {
+  const warnings = browserSourceWarnings({ title: "HEVC DTS" }, { canPlayType: () => "" });
+  assert.ok(warnings.some((warning) => warning.startsWith("Audio")));
+  assert.doesNotMatch(renderBrowserSourceWarnings(warnings), /Audio/);
+  assert.match(renderBrowserSourceWarnings(warnings), /Video may not work/);
+});
+
+test("embedded cues follow the original clock on native, local and converted playback", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const method = source.match(/  renderHtmlSubtitleOverlayAtCurrentTime\(\) \{[\s\S]*?\n  \},/)[0];
+  const player = Object.create(PlayerController);
+  player.video = { currentTime: 25.2 };
+  const screen = vm.runInNewContext(`({${method}})`);
+  let active;
+  Object.assign(screen, {
+    htmlSubtitleCues: [{ start: 25, end: 28, text: "English 25" }],
+    subtitleDelayMs: 0,
+    refreshEmbeddedSubtitleWindow() {},
+    getPlaybackCurrentSeconds: () => player.getCurrentTimeSeconds(),
+    renderHtmlSubtitleOverlayCue: (cues) => {
+      active = cues;
+    }
+  });
+  for (const mode of ["native", "avplayer", "server"]) {
+    player.localAudio = mode === "avplayer" ? { position: 25.2 } : null;
+    player.compatibility = mode === "server" ? { offset: 24.7 } : null;
+    player.video.currentTime = mode === "native" ? 25.2 : 0.5;
+    screen.renderHtmlSubtitleOverlayAtCurrentTime();
+    assert.equal(active[0]?.text, "English 25", mode);
+    screen.subtitleDelayMs = 1000;
+    screen.renderHtmlSubtitleOverlayAtCurrentTime();
+    assert.equal(active.length, 0, "User delay must still apply");
+    screen.subtitleDelayMs = 0;
+  }
+});
+
+test("a late embedded subtitle response cannot restore subtitles after Off", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const method = source.match(/  async refreshEmbeddedSubtitleWindow\(\) \{[\s\S]*?\n  \},/)[0];
+  let complete;
+  const player = {
+    playRequestToken: 1,
+    readEmbeddedSubtitles: () =>
+      new Promise((resolve) => {
+        complete = resolve;
+      })
+  };
+  const screen = vm.runInNewContext(`({${method}})`, { PlayerController: player });
+  Object.assign(screen, {
+    embeddedSubtitleSelection: { index: 3 },
+    getPlaybackCurrentSeconds: () => 25,
+    parseSubtitleCues: () => assert.fail("Stale subtitles were restored")
+  });
+  const pending = screen.refreshEmbeddedSubtitleWindow();
+  screen.embeddedSubtitleSelection = null;
+  complete({ text: "WEBVTT", offset: 20, end: 145 });
+  await pending;
+});
 
 test("browser PlayerScreen retains browser track paths without native TV playback branches", async () => {
   const source = await readFile(playerScreenUrl, "utf8");
@@ -138,11 +286,14 @@ test("Player external launches bind the optional Push return subscription unless
   assert.doesNotMatch(source, /disableBrowserPushReturn/);
 });
 
-
 test("audio boost does not capture native cross-origin media", async () => {
   const source = await readFile(playerScreenUrl, "utf8");
   const declaration = source.match(/function supportsWebAudioAmplification\(\) \{[\s\S]*?\n\}/)[0];
-  const context = { URL, location: { origin: "https://nuvio.example" }, PlayerController: { video: {} } };
+  const context = {
+    URL,
+    location: { origin: "https://nuvio.example" },
+    PlayerController: { video: {} }
+  };
   vm.runInNewContext(declaration, context);
   const video = context.PlayerController.video;
   video.currentSrc = "https://cdn.example/movie.mp4";
@@ -153,4 +304,310 @@ test("audio boost does not capture native cross-origin media", async () => {
   assert.equal(context.supportsWebAudioAmplification(), true);
   video.currentSrc = "";
   assert.equal(context.supportsWebAudioAmplification(), false);
+});
+
+test("audio boost does not capture native cross-origin media", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const declaration = source.match(/function supportsWebAudioAmplification\(\) \{[\s\S]*?\n\}/)[0];
+  const context = {
+    URL,
+    location: { origin: "https://nuvio.example" },
+    PlayerController: { video: {} }
+  };
+  vm.runInNewContext(declaration, context);
+  const video = context.PlayerController.video;
+  video.currentSrc = "https://cdn.example/movie.mp4";
+  assert.equal(context.supportsWebAudioAmplification(), false);
+  video.currentSrc = "blob:https://nuvio.example/download";
+  assert.equal(context.supportsWebAudioAmplification(), true);
+  video.currentSrc = "/movie.mp4";
+  assert.equal(context.supportsWebAudioAmplification(), true);
+  video.currentSrc = "";
+  assert.equal(context.supportsWebAudioAmplification(), false);
+});
+
+test("automatic audio recovery requires codec or decoding evidence and only tries once", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const method = source.match(
+    /  attemptSilentAudioRecovery\(reason = "silent-audio"\) \{[\s\S]*?\n  \},/
+  )[0];
+  const player = {
+    playRequestToken: 1,
+    currentPlaybackUrl: "https://media.example/video.mkv",
+    video: { currentTime: 0, paused: false, canPlayType: () => "" }
+  };
+  const screen = vm.runInNewContext(`({${method}})`, {
+    PlayerController: player,
+    browserSourceWarnings
+  });
+  screen.compatibilityAvailable = true;
+  screen.getCurrentStreamCandidate = () => ({ title: "Pilot" });
+  let attempts = 0;
+  screen.startCompatibilityPlayback = () => {
+    attempts++;
+    screen.compatibilityAttemptToken = player.playRequestToken;
+  };
+  assert.equal(
+    screen.attemptSilentAudioRecovery(),
+    false,
+    "No audio track list is not evidence of silence"
+  );
+  Object.assign(player.video, {
+    currentTime: 7,
+    webkitVideoDecodedByteCount: 10000,
+    webkitAudioDecodedByteCount: 0
+  });
+  assert.equal(screen.attemptSilentAudioRecovery("progress"), true);
+  assert.equal(screen.attemptSilentAudioRecovery("progress"), false);
+  assert.equal(attempts, 1);
+  player.playRequestToken++;
+  player.video.webkitAudioDecodedByteCount = 100;
+  assert.equal(screen.attemptSilentAudioRecovery(), false);
+  screen.getCurrentStreamCandidate = () => ({ title: "Pilot Dolby Digital Plus" });
+  assert.equal(screen.attemptSilentAudioRecovery(), true);
+  player.playRequestToken++;
+  screen.getCurrentStreamCandidate = () => ({ title: "Pilot" });
+  assert.equal(screen.attemptSilentAudioRecovery("error"), true);
+  player.playRequestToken++;
+  player.compatibility = {};
+  assert.equal(
+    screen.attemptSilentAudioRecovery("error"),
+    false,
+    "Do not retry the converted stream"
+  );
+});
+
+test("preparing audio closes the modal backdrop and cannot cover already started playback", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const methods = ["startCompatibilityPlayback", "closeAudioDialog"]
+    .map(
+      (name) =>
+        source.match(new RegExp(`  (?:async )?${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\n  \\},`))[0]
+    )
+    .join("\n");
+  const player = { playRequestToken: 1, video: { paused: false, readyState: 4 } };
+  const screen = vm.runInNewContext(`({${methods}})`, { PlayerController: player });
+  let backdropVisible = true;
+  Object.assign(screen, {
+    audioDialogVisible: true,
+    isActiveMountToken: () => true,
+    getStartupPreferredAudioLanguageTargets: () => ["en"],
+    pendingPlaybackRestore: { timeSeconds: 1948 },
+    getPlaybackCurrentSeconds: () => 0,
+    clearStartupError() {},
+    renderAudioDialog() {},
+    resetControlsAutoHide() {},
+    dismissPauseOverlay() {},
+    releaseStartupAudioGate() {},
+    clearPlaybackStallGuard() {},
+    updateLoadingVisibility() {},
+    refreshTrackDialogs() {},
+    updateModalBackdrop() {
+      backdropVisible = this.audioDialogVisible;
+    },
+    presentStartedPlayback() {
+      this.loadingVisible = false;
+    },
+    showStartupError() {
+      assert.fail("Preparation must not use an error overlay");
+    }
+  });
+  player.enableCompatibilityPlayback = async (position) => {
+    assert.equal(position, 1948, "Preserve resume when recovery starts before metadata");
+    assert.equal(backdropVisible, false);
+    assert.equal(screen.loadingVisible, true);
+  };
+  await screen.startCompatibilityPlayback();
+  assert.equal(screen.loadingVisible, false);
+  assert.equal(screen.compatibilityPending, false);
+});
+
+test("error and dialog controls retain their cursor and keyboard activation", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const names = ["setControlsVisible", "resetControlsAutoHide", "handleBrowserKeyDown"];
+  const methods = names
+    .map(
+      (name) =>
+        source.match(new RegExp(`  (?:async )?${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\n  \\},`))[0]
+    )
+    .join("\n");
+  class Element {
+    matches() {
+      return true;
+    }
+  }
+  const button = new Element();
+  let hiddenCursor = false;
+  let hideTimers = 0;
+  const screen = vm.runInNewContext(`({${methods}})`, {
+    Element,
+    document: { activeElement: button },
+    Environment: { isBrowser: () => true },
+    setTimeout: () => {
+      hideTimers++;
+    },
+    isBackEvent: () => false,
+    isSelectKeyCode: (code) => code === 13,
+    resolveBrowserPlayerShortcutRoute: () => "none"
+  });
+  Object.assign(screen, {
+    container: {
+      classList: {
+        toggle: (_, hidden) => {
+          hiddenCursor = hidden;
+        }
+      }
+    },
+    isExternalFrameMode: () => false,
+    isDesktopPlayerFullscreen: () => false,
+    isDesktopEditableTarget: () => false,
+    clearControlsAutoHide() {},
+    isDialogOpen: () => false,
+    isStartupErrorVisible: () => true
+  });
+  screen.setControlsVisible(false);
+  assert.equal(hiddenCursor, false, "Errors must never hide the pointer");
+  screen.controlsVisible = true;
+  screen.resetControlsAutoHide();
+  assert.equal(hideTimers, 0, "Errors must not auto-hide their controls");
+  let activated = null;
+  screen.onPointerActivate = (target) => {
+    activated = target;
+  };
+  await screen.handleBrowserKeyDown({ keyCode: 13, target: button });
+  assert.equal(activated, button, "Enter uses the same action as a mouse click");
+  screen.isStartupErrorVisible = () => false;
+  screen.isDialogOpen = () => true;
+  screen.setControlsVisible(false);
+  assert.equal(hiddenCursor, false, "Source and track panels keep the pointer");
+  screen.isDialogOpen = () => false;
+  screen.setControlsVisible(false);
+  assert.equal(hiddenCursor, true, "Normal playback still hides the pointer");
+});
+
+test("player actions accept mouse and accessibility clicks", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const body = source.match(
+    /this\.boundDesktopPlayerClickHandler = \(event\) => \{([\s\S]*?)\n    \};/
+  )[1];
+  class Element {
+    closest(selector) {
+      return selector.includes("[data-player-error-action]") ? this : null;
+    }
+  }
+  const target = new Element();
+  let activations = 0;
+  const screen = {
+    container: { contains: () => true },
+    dismissDesktopPlayerPanelFromPointer: () => false,
+    onPointerActivate: () => {
+      activations++;
+    }
+  };
+  const click = vm.runInNewContext(`(function(event) {${body}})`, { Element }).bind(screen);
+  click({ target, detail: 0 });
+  click({ target, detail: 1 });
+  click({ target, detail: 1, defaultPrevented: true });
+  assert.equal(activations, 2);
+});
+
+test("the stall guard allows conversion preparation and rechecks an older timer", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const methods = ["getPlaybackStallTimeoutMs", "schedulePlaybackStallGuard"]
+    .map((name) => source.match(new RegExp(`  ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\n  \\},`))[0])
+    .join("\n");
+  const player = { compatibilitySeeking: false };
+  const timers = [];
+  const screen = vm.runInNewContext(`({${methods}})`, {
+    PlayerController: player,
+    setTimeout: (callback, delay) => {
+      timers.push({ callback, delay });
+      return timers.length;
+    }
+  });
+  Object.assign(screen, {
+    clearPlaybackStallGuard() {},
+    isExternalFrameMode: () => false,
+    activePlaybackUrl: "https://media.example/movie.mkv",
+    loadingVisible: true,
+    hasPresentedPlaybackFrame: true
+  });
+  screen.schedulePlaybackStallGuard();
+  assert.equal(timers[0].delay, 9000);
+  player.compatibilitySeeking = true;
+  timers[0].callback();
+  assert.equal(timers[1].delay, 65000, "An old stall timer must not cancel conversion");
+  player.compatibilitySeeking = false;
+  screen.compatibilityPending = true;
+  assert.equal(screen.getPlaybackStallTimeoutMs(), 65000);
+  screen.compatibilityPending = false;
+  assert.equal(screen.getPlaybackStallTimeoutMs({ startup: true }), 18000);
+});
+
+test("hidden-track discovery refreshes preferences once and ignores stale playback", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const method = source.match(/  async discoverHiddenAudioTracks\(\) \{[\s\S]*?\n  \},/)[0];
+  let complete;
+  let refreshed = 0;
+  const player = {
+    playRequestToken: 4,
+    playbackEngine: "native-file",
+    video: { readyState: 4 },
+    currentPlaybackUrl: "https://media.example/multilingual.mp4",
+    inspectBrowserAudioTracks() {
+      this.audioInspection = { playToken: this.playRequestToken };
+      return new Promise((resolve) => {
+        complete = resolve;
+      });
+    }
+  };
+  const screen = vm.runInNewContext(`({${method}})`, { PlayerController: player });
+  Object.assign(screen, {
+    compatibilityAvailable: true,
+    getAudioEntries: () => [],
+    renderAudioDialog() {},
+    isActiveMountToken: () => true,
+    refreshTrackDialogs() {
+      refreshed++;
+    },
+    startupAudioPreferenceApplied: true
+  });
+  const pending = screen.discoverHiddenAudioTracks();
+  complete();
+  await pending;
+  assert.equal(screen.startupAudioPreferenceApplied, false);
+  assert.equal(refreshed, 1);
+  await screen.discoverHiddenAudioTracks();
+  assert.equal(refreshed, 1, "Inspect a file only once");
+  player.playRequestToken++;
+  const stale = screen.discoverHiddenAudioTracks();
+  player.playRequestToken++;
+  complete();
+  await stale;
+  assert.equal(refreshed, 1, "A late probe must not change another source");
+});
+
+test("selecting hidden native audio requests its source index and remembers manual choices", async () => {
+  const source = await readFile(playerScreenUrl, "utf8");
+  const method = source.match(/  applyAudioTrack\([^\n]*\) \{[\s\S]*?\n  \},/)[0];
+  const screen = vm.runInNewContext(`({${method}})`, { PlayerController: {} });
+  let track, remembered;
+  const entry = { selected: false, track: { engine: "inspected", sourceIndex: 3 } };
+  Object.assign(screen, {
+    getAudioEntries: () => [entry],
+    startCompatibilityPlayback: (value) => {
+      track = value;
+    },
+    rememberAudioTrackSelection: (value) => {
+      remembered = value;
+    },
+    getAudioTrackPreference: () => "en"
+  });
+  screen.applyAudioTrack(0, { rememberSelection: true });
+  assert.equal(track, 3);
+  assert.equal(remembered, "en");
+  track = null;
+  entry.selected = true;
+  screen.applyAudioTrack(0);
+  assert.equal(track, null, "The file's existing default does not need conversion");
 });

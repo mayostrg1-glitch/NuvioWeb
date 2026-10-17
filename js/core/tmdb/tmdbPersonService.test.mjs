@@ -16,7 +16,10 @@ test("normalizes combined credits and deduplicates a title across crew jobs", ()
     ]
   });
   assert.equal(credits.length, 2);
-  assert.deepEqual(credits.find((credit) => credit.tmdbId === "2").roles.sort(), ["Director", "Writer"]);
+  assert.deepEqual(credits.find((credit) => credit.tmdbId === "2").roles.sort(), [
+    "Director",
+    "Writer"
+  ]);
 });
 
 test("person credit ranking keeps popular and released latest semantics", () => {

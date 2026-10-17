@@ -45,13 +45,19 @@ export function mergeOfflineDisplaySnapshot(local = {}, remote = {}) {
   const remoteEpisode = remote?.episode || {};
   return {
     ...local,
-    ...Object.fromEntries(Object.entries(remote || {}).filter(([, value]) => value != null && value !== "" && (!Array.isArray(value) || value.length))),
+    ...Object.fromEntries(
+      Object.entries(remote || {}).filter(
+        ([, value]) => value != null && value !== "" && (!Array.isArray(value) || value.length)
+      )
+    ),
     genres: list(remote.genres).length ? list(remote.genres) : list(local.genres),
     writers: list(remote.writers).length ? list(remote.writers) : list(local.writers),
     directors: list(remote.directors).length ? list(remote.directors) : list(local.directors),
     episode: {
       ...localEpisode,
-      ...Object.fromEntries(Object.entries(remoteEpisode).filter(([, value]) => value != null && value !== ""))
+      ...Object.fromEntries(
+        Object.entries(remoteEpisode).filter(([, value]) => value != null && value !== "")
+      )
     }
   };
 }
@@ -60,7 +66,11 @@ export function mergeOfflineDisplaySnapshot(local = {}, remote = {}) {
 // picture that cannot be fetched. Offline, falling back to the remembered
 // remote logo drew a broken-image box above the title -- worse than the plain
 // text it was trying to improve on.
-export function applyOfflineDisplaySnapshot(meta = {}, snapshot = {}, { allowRemoteArtwork = true } = {}) {
+export function applyOfflineDisplaySnapshot(
+  meta = {},
+  snapshot = {},
+  { allowRemoteArtwork = true } = {}
+) {
   return {
     ...meta,
     name: first(meta.name, snapshot.title),

@@ -6,7 +6,9 @@ test("locale loading uses the selected locale over the cached default resource",
   const requested = [];
   const messages = await loadLocaleMessagesWithFallback("de", async (path) => {
     requested.push(path);
-    return path === "values/strings.xml" ? { greeting: "Hello", base: "Base" } : { greeting: "Hallo" };
+    return path === "values/strings.xml"
+      ? { greeting: "Hello", base: "Base" }
+      : { greeting: "Hallo" };
   });
   assert.deepEqual(requested, ["values/strings.xml", "values-de/strings.xml"]);
   assert.deepEqual(messages, { greeting: "Hallo", base: "Base" });

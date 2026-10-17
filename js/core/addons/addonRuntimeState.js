@@ -6,7 +6,12 @@ function fallbackName(baseUrl) {
   }
 }
 
-export function buildConfiguredAddonEntry({ baseUrl = "", cached = null, failed = false, displayName = "" } = {}) {
+export function buildConfiguredAddonEntry({
+  baseUrl = "",
+  cached = null,
+  failed = false,
+  displayName = ""
+} = {}) {
   if (cached) {
     return { ...cached, runtimeStatus: "available" };
   }

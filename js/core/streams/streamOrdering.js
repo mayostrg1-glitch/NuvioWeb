@@ -10,7 +10,10 @@ function normalizedName(value) {
 }
 
 function streamAddonOrderIndex(stream = {}) {
-  return finiteSourceRank(stream?.addonOrderIndex) ?? finiteSourceRank(stream?.streamOrigin?.addonOrderIndex);
+  return (
+    finiteSourceRank(stream?.addonOrderIndex) ??
+    finiteSourceRank(stream?.streamOrigin?.addonOrderIndex)
+  );
 }
 
 function streamSourceKind(stream = {}) {
@@ -101,7 +104,11 @@ export function orderStreamsByAddonOrder(
   return groups.flatMap((group) => group.items);
 }
 
-export function orderSourceNames(streams = [], sourceChips = [], { isDirectDebrid = () => false } = {}) {
+export function orderSourceNames(
+  streams = [],
+  sourceChips = [],
+  { isDirectDebrid = () => false } = {}
+) {
   const ordered = [];
   orderStreamsByAddonOrder(streams, sourceChips, { isDirectDebrid }).forEach((stream) => {
     const name = normalizedName(stream?.addonName);

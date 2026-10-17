@@ -61,7 +61,9 @@ function getStoredAccountOwnerMarker() {
 }
 
 function createOwnerResponseError(response, message) {
-  const error = new Error(message || `Unable to resolve sync owner (${response?.status || "unknown"})`);
+  const error = new Error(
+    message || `Unable to resolve sync owner (${response?.status || "unknown"})`
+  );
   error.status = Number(response?.status || 0) || null;
   return error;
 }
@@ -167,11 +169,13 @@ class AuthManagerClass {
   async signOut() {
     this.sessionGeneration += 1;
     SessionStore.clear();
+    // A previous guest choice must not turn an explicit sign-out into guest Home.
+    globalThis.localStorage?.removeItem?.("skipAuthQrGate");
     this.cachedEffectiveUserId = null;
     this.cachedEffectiveUserSourceUserId = null;
-    this.setState(AuthState.SIGNED_OUT);
     clearAccountLocalData();
     await resetAccountRuntimeState();
+    this.setState(AuthState.SIGNED_OUT);
   }
 
   getSessionGeneration() {

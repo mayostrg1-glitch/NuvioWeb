@@ -31,7 +31,10 @@ export function isBrowserPictureInPictureActive(video, documentRef = globalThis.
   if (capability === BROWSER_PICTURE_IN_PICTURE_STANDARD) {
     return documentRef?.pictureInPictureElement === video;
   }
-  return capability === BROWSER_PICTURE_IN_PICTURE_WEBKIT && video.webkitPresentationMode === "picture-in-picture";
+  return (
+    capability === BROWSER_PICTURE_IN_PICTURE_WEBKIT &&
+    video.webkitPresentationMode === "picture-in-picture"
+  );
 }
 
 export async function enterBrowserPictureInPicture(video, documentRef = globalThis.document) {
@@ -49,7 +52,9 @@ export async function enterBrowserPictureInPicture(video, documentRef = globalTh
 
 export async function exitBrowserPictureInPicture(video, documentRef = globalThis.document) {
   if (!isBrowserPictureInPictureActive(video, documentRef)) return false;
-  if (getBrowserPictureInPictureCapability(video, documentRef) === BROWSER_PICTURE_IN_PICTURE_STANDARD) {
+  if (
+    getBrowserPictureInPictureCapability(video, documentRef) === BROWSER_PICTURE_IN_PICTURE_STANDARD
+  ) {
     await documentRef.exitPictureInPicture();
   } else {
     video.webkitSetPresentationMode("inline");

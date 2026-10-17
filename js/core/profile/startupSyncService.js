@@ -206,10 +206,7 @@ export const StartupSyncService = {
   // promise reference themselves.
   async hydrateCriticalHome(profileId = ProfileManager.getActiveProfileId()) {
     const resolvedProfileId = normalizeProfileId(profileId);
-    if (
-      pendingCriticalHydration &&
-      pendingCriticalHydration.profileId === resolvedProfileId
-    ) {
+    if (pendingCriticalHydration && pendingCriticalHydration.profileId === resolvedProfileId) {
       return pendingCriticalHydration.promise;
     }
     const promise = hydrateCriticalHomeUncached(resolvedProfileId);
@@ -269,26 +266,30 @@ export const StartupSyncService = {
         // Every background branch starts now. SIMKL retains its credential →
         // refresh dependency inside its own branch, so it cannot delay
         // collections, library, watched/progress, plugins, or Home.
-        const profilesTask = Promise.resolve().then(() => ProfileSyncService.pull()).then(async (profiles) => {
-          logSyncTiming("background-profile-pull", syncStartedAt);
-          const profileIds = await collectKnownProfileIds(profiles);
-          await Promise.allSettled(
-            profileIds
-              .filter((profileId) => normalizeProfileId(profileId) !== normalizeProfileId(activeProfileId))
-              .map((profileId) => ProfileSettingsSyncService.pull(profileId))
-          );
-          logSyncTiming("background-inactive-profile-settings-pull", syncStartedAt);
-          return profiles;
-        });
+        const profilesTask = Promise.resolve()
+          .then(() => ProfileSyncService.pull())
+          .then(async (profiles) => {
+            logSyncTiming("background-profile-pull", syncStartedAt);
+            const profileIds = await collectKnownProfileIds(profiles);
+            await Promise.allSettled(
+              profileIds
+                .filter(
+                  (profileId) =>
+                    normalizeProfileId(profileId) !== normalizeProfileId(activeProfileId)
+                )
+                .map((profileId) => ProfileSettingsSyncService.pull(profileId))
+            );
+            logSyncTiming("background-inactive-profile-settings-pull", syncStartedAt);
+            return profiles;
+          });
         const traktCredentialsTask = Promise.resolve().then(() =>
           TraktCredentialSyncService.pullFromRemote(activeProfileId)
         );
         const providerCredentialsTask = Promise.resolve().then(() =>
           ProviderCredentialSyncService.syncFromRemote(activeProfileId)
         );
-        const simklTask = Promise.resolve().then(() =>
-          SimklCredentialSyncService.pullFromRemote(activeProfileId)
-        )
+        const simklTask = Promise.resolve()
+          .then(() => SimklCredentialSyncService.pullFromRemote(activeProfileId))
           .then(() => SimklSyncService.refresh())
           .catch((error) => {
             console.warn("Simkl automatic refresh failed", error);
@@ -300,9 +301,13 @@ export const StartupSyncService = {
           : null;
         const scopedTasks = includeProfileScoped
           ? {
-              collections: Promise.resolve().then(() => CollectionSyncService.pull(activeProfileId)),
+              collections: Promise.resolve().then(() =>
+                CollectionSyncService.pull(activeProfileId)
+              ),
               plugins: Promise.resolve().then(() => PluginSyncService.pull()),
-              savedLibrary: Promise.resolve().then(() => SavedLibrarySyncService.pull(activeProfileId)),
+              savedLibrary: Promise.resolve().then(() =>
+                SavedLibrarySyncService.pull(activeProfileId)
+              ),
               watchedItems: watchedItemsTask,
               // Both requests still go out together; only the progress merge
               // waits, because a completion made on another device arrives as a

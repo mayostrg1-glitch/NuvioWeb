@@ -141,7 +141,9 @@ export const SavedLibraryStore = {
     );
     profileIds.forEach((profileId) => {
       if (
-        itemsSignature(previousItems.filter((item) => String(item.profileId || "1") === profileId)) !==
+        itemsSignature(
+          previousItems.filter((item) => String(item.profileId || "1") === profileId)
+        ) !==
         itemsSignature(nextItems.filter((item) => String(item.profileId || "1") === profileId))
       ) {
         notifyChange(profileId, "replaceAll");
@@ -155,13 +157,11 @@ export const SavedLibraryStore = {
     const previousProfileItems = currentItems.filter(
       (item) => String(item.profileId || "1") === pid
     );
-    const keepOtherProfiles = currentItems.filter(
-      (item) => String(item.profileId || "1") !== pid
-    );
+    const keepOtherProfiles = currentItems.filter((item) => String(item.profileId || "1") !== pid);
     const normalized = dedupeAndSort(
       (Array.isArray(items) ? items : [])
-      .map((item) => normalizeItem(item, pid))
-      .filter((item) => Boolean(item.contentId))
+        .map((item) => normalizeItem(item, pid))
+        .filter((item) => Boolean(item.contentId))
     );
     const nextItems = dedupeAndSort([...normalized, ...keepOtherProfiles]).slice(0, 1000);
     if (itemsSignature(previousProfileItems) === itemsSignature(normalized)) {

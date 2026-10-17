@@ -35,7 +35,12 @@ test("npm serve handles one-time external return reports without logging stream 
   let output = "";
   const child = spawn(process.execPath, ["scripts/serve.mjs"], {
     cwd: process.cwd(),
-    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", NUVIO_DISABLE_MEDIA_RUNTIME: "1" },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      HOST: "127.0.0.1",
+      NUVIO_DISABLE_MEDIA_RUNTIME: "1"
+    },
     stdio: ["ignore", "pipe", "pipe"]
   });
   child.stdout.on("data", (chunk) => {
@@ -46,7 +51,9 @@ test("npm serve handles one-time external return reports without logging stream 
   });
   try {
     await waitForServer(baseUrl);
-    const report = await fetch(`${baseUrl}/api/external-return/report/${token}?outcome=stopped&position=30&duration=60&url=https%3A%2F%2Fsecret.example%2Fsigned`);
+    const report = await fetch(
+      `${baseUrl}/api/external-return/report/${token}?outcome=stopped&position=30&duration=60&url=https%3A%2F%2Fsecret.example%2Fsigned`
+    );
     const page = await report.text();
     assert.equal(report.status, 200);
     assert.match(page, /Playback received/);
@@ -55,24 +62,43 @@ test("npm serve handles one-time external return reports without logging stream 
     assert.equal(page.includes("secret.example"), false);
 
     const collected = await fetch(`${baseUrl}/api/external-return/collect/${token}`);
-    assert.deepEqual(await collected.json(), { found: true, outcome: "stopped", provider: "outplayer", sourceOutcome: "stopped", position: 30, duration: 60, progress: null, parameterNames: ["position", "duration"] });
-    assert.deepEqual(await (await fetch(`${baseUrl}/api/external-return/collect/${token}`)).json(), { found: false });
-
-    const finishedToken = "11111111111111111111111111111111";
-    const finished = await fetch(`${baseUrl}/api/external-return/report/${finishedToken}?outcome=stopped&provider=outplayer&sourceOutcome=finished`);
-    assert.equal(finished.status, 200);
-    assert.deepEqual(await (await fetch(`${baseUrl}/api/external-return/collect/${finishedToken}`)).json(), {
+    assert.deepEqual(await collected.json(), {
       found: true,
       outcome: "stopped",
       provider: "outplayer",
-      sourceOutcome: "finished",
-      position: null,
-      duration: null,
+      sourceOutcome: "stopped",
+      position: 30,
+      duration: 60,
       progress: null,
-      parameterNames: []
+      parameterNames: ["position", "duration"]
     });
+    assert.deepEqual(
+      await (await fetch(`${baseUrl}/api/external-return/collect/${token}`)).json(),
+      { found: false }
+    );
 
-    const invalid = await fetch(`${baseUrl}/api/external-return/report/not-a-token?outcome=stopped`);
+    const finishedToken = "11111111111111111111111111111111";
+    const finished = await fetch(
+      `${baseUrl}/api/external-return/report/${finishedToken}?outcome=stopped&provider=outplayer&sourceOutcome=finished`
+    );
+    assert.equal(finished.status, 200);
+    assert.deepEqual(
+      await (await fetch(`${baseUrl}/api/external-return/collect/${finishedToken}`)).json(),
+      {
+        found: true,
+        outcome: "stopped",
+        provider: "outplayer",
+        sourceOutcome: "finished",
+        position: null,
+        duration: null,
+        progress: null,
+        parameterNames: []
+      }
+    );
+
+    const invalid = await fetch(
+      `${baseUrl}/api/external-return/report/not-a-token?outcome=stopped`
+    );
     assert.equal(invalid.status, 404);
     assert.equal(output.includes("secret.example"), false);
     assert.equal(output.includes("[external-return]"), false);

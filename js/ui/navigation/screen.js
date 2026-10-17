@@ -1,5 +1,8 @@
 export function isSpatialCardTarget(node) {
-  return Boolean(node?.matches?.("article.focusable"));
+  return (
+    Boolean(node?.matches?.("article.focusable")) &&
+    !globalThis.document?.documentElement?.classList?.contains("desktop-browser")
+  );
 }
 
 function isScrollable(node, axis) {
@@ -23,19 +26,26 @@ function scrollNearest(container, target, axis) {
   const targetRect = target.getBoundingClientRect?.();
   if (!targetRect) return;
   const isDocumentScroll =
-    container === globalThis.document?.scrollingElement || container === globalThis.document?.documentElement;
+    container === globalThis.document?.scrollingElement ||
+    container === globalThis.document?.documentElement;
   const viewportRect = isDocumentScroll
     ? {
         left: 0,
         top: 0,
-        right: Number(globalThis.innerWidth || globalThis.document?.documentElement?.clientWidth || 0),
-        bottom: Number(globalThis.innerHeight || globalThis.document?.documentElement?.clientHeight || 0)
+        right: Number(
+          globalThis.innerWidth || globalThis.document?.documentElement?.clientWidth || 0
+        ),
+        bottom: Number(
+          globalThis.innerHeight || globalThis.document?.documentElement?.clientHeight || 0
+        )
       }
     : container.getBoundingClientRect?.();
   if (!viewportRect) return;
 
-  const before = axis === "x" ? targetRect.left - viewportRect.left : targetRect.top - viewportRect.top;
-  const after = axis === "x" ? targetRect.right - viewportRect.right : targetRect.bottom - viewportRect.bottom;
+  const before =
+    axis === "x" ? targetRect.left - viewportRect.left : targetRect.top - viewportRect.top;
+  const after =
+    axis === "x" ? targetRect.right - viewportRect.right : targetRect.bottom - viewportRect.bottom;
   const inset = axis === "x" ? 16 : 20;
   let adjustment = 0;
   if (before < inset) adjustment = before - inset;
@@ -145,6 +155,16 @@ export const ScreenUtils = {
       return;
     }
     const list = Array.from(container?.querySelectorAll(selector) || []).filter((node) => {
+      if (
+        globalThis.document?.documentElement?.classList?.contains?.("desktop-browser") &&
+        node.tabIndex < 0
+      )
+        return false;
+      if (
+        node.matches?.(':disabled, [aria-disabled="true"]') ||
+        node.closest?.('[hidden], .hidden, [inert], [aria-hidden="true"]')
+      )
+        return false;
       const rect = node.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });
@@ -152,7 +172,10 @@ export const ScreenUtils = {
       return;
     }
 
-    const current = container?.querySelector(`${selector}.focused`) || list[0];
+    const current =
+      list.find((node) => node === globalThis.document?.activeElement) ||
+      list.find((node) => node.classList.contains("focused")) ||
+      list[0];
     if (!current.classList.contains("focused")) {
       list.forEach((node) => node.classList.remove("focused"));
       current.classList.add("focused");
@@ -204,26 +227,26 @@ export const ScreenUtils = {
     let target = null;
 
     if (direction === "up" || direction === "down") {
-        const nearestPrimary = candidates.reduce((min, entry) => {
-          const primary = Math.abs(entry.dy);
-          return Math.min(min, primary);
-        }, Number.POSITIVE_INFINITY);
-        const rowTolerance = Math.max(currentRect.height * 0.9, 42);
-        const nearestRow = candidates.filter((entry) => {
-          const primary = Math.abs(entry.dy);
-          return primary <= nearestPrimary + rowTolerance;
-        });
-        const alignedInRow = nearestRow
-          .filter((entry) => entry.aligned)
-          .sort((left, right) => Math.abs(left.dx) - Math.abs(right.dx));
-        const rowSorted = nearestRow.sort((left, right) => {
-          const sec = Math.abs(left.dx) - Math.abs(right.dx);
-          if (sec !== 0) {
-            return sec;
-          }
-          return Math.abs(left.dy) - Math.abs(right.dy);
-        });
-        target = alignedInRow[0]?.node || rowSorted[0]?.node || null;
+      const nearestPrimary = candidates.reduce((min, entry) => {
+        const primary = Math.abs(entry.dy);
+        return Math.min(min, primary);
+      }, Number.POSITIVE_INFINITY);
+      const rowTolerance = Math.max(currentRect.height * 0.9, 42);
+      const nearestRow = candidates.filter((entry) => {
+        const primary = Math.abs(entry.dy);
+        return primary <= nearestPrimary + rowTolerance;
+      });
+      const alignedInRow = nearestRow
+        .filter((entry) => entry.aligned)
+        .sort((left, right) => Math.abs(left.dx) - Math.abs(right.dx));
+      const rowSorted = nearestRow.sort((left, right) => {
+        const sec = Math.abs(left.dx) - Math.abs(right.dx);
+        if (sec !== 0) {
+          return sec;
+        }
+        return Math.abs(left.dy) - Math.abs(right.dy);
+      });
+      target = alignedInRow[0]?.node || rowSorted[0]?.node || null;
     } else {
       const nearestPrimary = candidates.reduce((min, entry) => {
         const primary = Math.abs(entry.dx);

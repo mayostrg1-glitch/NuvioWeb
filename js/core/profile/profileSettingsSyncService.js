@@ -121,7 +121,7 @@ function isEncodedPreferenceValue(value) {
   );
 }
 
-function normalizeFeaturePayload(value) {
+function normalizeFeaturePayload(value, featureName = "") {
   if (!isPlainObject(value)) {
     return {};
   }
@@ -135,6 +135,19 @@ function normalizeFeaturePayload(value) {
       accumulator[key] = entry.value;
     } else {
       accumulator[key] = entry;
+    }
+    // Layout lists use JSON strings in the shared Android/Desktop cloud format.
+    if (
+      shouldSerializeLayoutStringArrayAsString(featureName, key) &&
+      typeof accumulator[key] === "string"
+    ) {
+      try {
+        const parsed = JSON.parse(accumulator[key]);
+        if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string"))
+          accumulator[key] = parsed;
+      } catch (_) {
+        /* Ignore invalid values without clearing the local selection. */
+      }
     }
     return accumulator;
   }, {});
@@ -776,7 +789,7 @@ const FEATURE_ADAPTERS = {
       };
     },
     project(rawFeature = {}) {
-      const raw = normalizeFeaturePayload(rawFeature);
+      const raw = normalizeFeaturePayload(rawFeature, "layout_settings");
       const projected = {};
       if (stringOrNull(raw.selected_layout)) {
         projected.selected_layout = normalizeHomeLayoutForAndroid(raw.selected_layout);
@@ -875,7 +888,7 @@ const FEATURE_ADAPTERS = {
       return projected;
     },
     import(profileId, rawFeature = {}) {
-      const raw = normalizeFeaturePayload(rawFeature);
+      const raw = normalizeFeaturePayload(rawFeature, "layout_settings");
       const partial = {};
       if (stringOrNull(raw.selected_layout)) {
         partial.homeLayout = normalizeHomeLayoutForWeb(raw.selected_layout);
@@ -2054,11 +2067,7 @@ function buildComparableSignatureFromLocal(profileId) {
   return stableStringify(buildComparableFeaturesFromLocal(profileId));
 }
 
-function buildOutgoingBlob(
-  profileId,
-  baseBlob = null,
-  { dirtyStoreKeys = null } = {}
-) {
+function buildOutgoingBlob(profileId, baseBlob = null, { dirtyStoreKeys = null } = {}) {
   const normalizedBase = normalizeBlob(baseBlob || {});
   const hasRemoteSettings = hasUsableRemoteProfileSettings(normalizedBase);
   const dirtyFeatures =
@@ -2103,9 +2112,7 @@ function buildOutgoingBlob(
     normalizedBase.features[DESKTOP_CONTINUE_WATCHING_SETTINGS_PAYLOAD_FEATURE];
   const shouldPatchDesktopContinueWatchingPayload =
     isDesktopBrowserProfileSettings() &&
-    (!hasRemoteSettings ||
-      dirtyFeatures == null ||
-      dirtyFeatures.has("layout_settings"));
+    (!hasRemoteSettings || dirtyFeatures == null || dirtyFeatures.has("layout_settings"));
   if (
     typeof desktopContinueWatchingSettingsPayload === "string" ||
     shouldPatchDesktopContinueWatchingPayload
@@ -2213,15 +2220,12 @@ function applyRemoteBlob(profileId, blob) {
 }
 
 function replayPendingLocalSettings(profileId, mutations = []) {
-  return mutations.reduce(
-    (didReplay, mutation) => {
-      if (typeof mutation?.replay === "function") {
-        return mutation.replay(profileId) || didReplay;
-      }
-      return replayProfileSettingsMutation(profileId, mutation) || didReplay;
-    },
-    false
-  );
+  return mutations.reduce((didReplay, mutation) => {
+    if (typeof mutation?.replay === "function") {
+      return mutation.replay(profileId) || didReplay;
+    }
+    return replayProfileSettingsMutation(profileId, mutation) || didReplay;
+  }, false);
 }
 
 async function canUseSettingsContext(context, profileId, { requireActiveProfile = false } = {}) {
@@ -2248,7 +2252,13 @@ export const ProfileSettingsSyncService = {
       if (!(await canUseSettingsContext(syncContext, resolvedProfileId))) return false;
       if (hasUsableRemoteProfileSettings(blob)) {
         const didApply = importRemoteBlob(resolvedProfileId, blob, platform);
-        if (!(await SyncHydrationState.completePull(syncContext, "profile-settings", SyncPullResult.SUCCESS_WITH_DATA))) {
+        if (
+          !(await SyncHydrationState.completePull(
+            syncContext,
+            "profile-settings",
+            SyncPullResult.SUCCESS_WITH_DATA
+          ))
+        ) {
           return false;
         }
         const mutations = SyncHydrationState.getPendingSettingsMutations(syncContext);
@@ -2332,7 +2342,9 @@ export const ProfileSettingsSyncService = {
       }
       const resolvedProfileId = resolveProfileId(profileId);
       const syncContext = context || (await SyncHydrationState.capture(resolvedProfileId));
-      if (!(await canUseSettingsContext(syncContext, resolvedProfileId, { requireActiveProfile }))) {
+      if (
+        !(await canUseSettingsContext(syncContext, resolvedProfileId, { requireActiveProfile }))
+      ) {
         return false;
       }
       if (!(await SyncHydrationState.allowsAutomaticPush(syncContext, "profile-settings"))) {
@@ -2348,7 +2360,9 @@ export const ProfileSettingsSyncService = {
       }
       const platform = getProfileSettingsSyncPlatform();
       const remoteBlob = await pullRemoteBlob(resolvedProfileId, platform);
-      if (!(await canUseSettingsContext(syncContext, resolvedProfileId, { requireActiveProfile }))) {
+      if (
+        !(await canUseSettingsContext(syncContext, resolvedProfileId, { requireActiveProfile }))
+      ) {
         return false;
       }
       const mutations = SyncHydrationState.getPendingSettingsMutations(syncContext);
@@ -2364,7 +2378,9 @@ export const ProfileSettingsSyncService = {
         },
         true
       );
-      if (!(await canUseSettingsContext(syncContext, resolvedProfileId, { requireActiveProfile }))) {
+      if (
+        !(await canUseSettingsContext(syncContext, resolvedProfileId, { requireActiveProfile }))
+      ) {
         return false;
       }
       setCachedBlob(resolvedProfileId, blob, platform);

@@ -135,13 +135,13 @@ private values in browser runtime configuration.
 Use the default `:stable` tag for normal self-hosting. To switch channels, edit
 all four `image:` tags in `docker-compose.yml` to the same tag before pulling.
 
-| Tag | Meaning |
-| --- | --- |
-| `stable` | Recommended. Latest official release. |
-| `nightly` | Latest development build from `web`; may be unstable. |
-| `latest` | Most recently published project build, whether development or release. |
-| `X.Y.Z` | Pinned immutable release, such as `0.1.0`. |
-| `desktop` | Temporary legacy compatibility alias. |
+| Tag       | Meaning                                                                |
+| --------- | ---------------------------------------------------------------------- |
+| `stable`  | Recommended. Latest official release.                                  |
+| `nightly` | Latest development build from `web`; may be unstable.                  |
+| `latest`  | Most recently published project build, whether development or release. |
+| `X.Y.Z`   | Pinned immutable release, such as `0.1.0`.                             |
+| `desktop` | Temporary legacy compatibility alias.                                  |
 
 Examples: use `:stable` for the recommended channel, `:nightly` for the latest
 web development build, `:latest` for the newest published build of any kind,

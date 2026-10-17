@@ -54,7 +54,9 @@ function renderProfile(profile, selectedRoute) {
   const profileState = profile || {};
   const label = t("sidebar.profileFallback", "Profile");
   const name = String(profileState.activeProfileName || label).trim() || label;
-  const initial = String(profileState.activeProfileInitial || name.charAt(0) || "P").charAt(0).toUpperCase();
+  const initial = String(profileState.activeProfileInitial || name.charAt(0) || "P")
+    .charAt(0)
+    .toUpperCase();
   const color = String(profileState.activeProfileColorHex || "#1E88E5");
   const avatarUrl = String(profileState.activeProfileAvatarUrl || "").trim();
   const isActive = selectedRoute === "profileSelection";

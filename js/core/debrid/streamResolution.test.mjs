@@ -13,9 +13,6 @@ test("resolution parsing recognizes canonical stream labels with mixed casing", 
 });
 
 test("parsed resolution takes priority over later title noise", () => {
-  assert.equal(
-    resolutionFromFields(["1080p", "WEB-DL", "", "Movie.4K.Remaster.2160p"]),
-    "P1080"
-  );
+  assert.equal(resolutionFromFields(["1080p", "WEB-DL", "", "Movie.4K.Remaster.2160p"]), "P1080");
   assert.equal(resolutionFromFields(["", "", "", "Torrent.4K.UHD"]), "P2160");
 });

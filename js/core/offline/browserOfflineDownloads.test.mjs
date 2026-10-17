@@ -27,7 +27,12 @@ function resumeResponse({ status, contentLength, contentRange = "", hasBody = tr
     status,
     ok: status >= 200 && status < 300,
     body: hasBody ? {} : null,
-    headers: { get: (name) => ({ "content-length": contentLength, "content-range": contentRange })[String(name).toLowerCase()] || null }
+    headers: {
+      get: (name) =>
+        ({ "content-length": contentLength, "content-range": contentRange })[
+          String(name).toLowerCase()
+        ] || null
+    }
   };
 }
 
@@ -36,7 +41,10 @@ test("resume fetch boundary sends Range for retained offline bytes", () => {
     createBrowserOfflineDownloadRequestInit(new AbortController().signal, 49552935).headers,
     { Range: "bytes=49552935-" }
   );
-  assert.equal(createBrowserOfflineDownloadRequestInit(new AbortController().signal, 0).headers, undefined);
+  assert.equal(
+    createBrowserOfflineDownloadRequestInit(new AbortController().signal, 0).headers,
+    undefined
+  );
 });
 
 test("ignored Range full response uses the verified skip-prefix append plan", () => {
@@ -71,7 +79,10 @@ test("prefix skipping is byte accurate across chunk boundaries", () => {
     if (result.writeChunk) written.push(...result.writeChunk);
   }
   assert.equal(remaining, 0);
-  assert.deepEqual(written, Array.from({ length: 92 }, (_, index) => index + 100));
+  assert.deepEqual(
+    written,
+    Array.from({ length: 92 }, (_, index) => index + 100)
+  );
 });
 
 test("prefix skipping leaves retained OPFS bytes unchanged until the suffix starts", () => {
@@ -101,15 +112,20 @@ test("production skip-prefix transfer writes the crossing chunk suffix exactly o
   const transfer = await writeBrowserOfflineDownloadResponse({
     prefixBytes: 100,
     reader: {
-      read: async () => cursor < chunks.length
-        ? { done: false, value: chunks[cursor++] }
-        : { done: true }
+      read: async () =>
+        cursor < chunks.length ? { done: false, value: chunks[cursor++] } : { done: true }
     },
     write: async (chunk) => writes.push(chunk)
   });
 
-  assert.deepEqual(writes.map((chunk) => chunk.byteLength), [28, 72]);
-  assert.deepEqual(Array.from(writes[0]), Array.from({ length: 28 }, (_, index) => index + 100));
+  assert.deepEqual(
+    writes.map((chunk) => chunk.byteLength),
+    [28, 72]
+  );
+  assert.deepEqual(
+    Array.from(writes[0]),
+    Array.from({ length: 28 }, (_, index) => index + 100)
+  );
   assert.notEqual(writes[0].buffer, chunks[1].buffer);
   assert.equal(transfer.prefixBytesDiscarded, 100);
   assert.equal(transfer.suffixBytesWritten, 100);
@@ -134,28 +150,45 @@ test("ambiguous retained responses retain the safe restart plan", () => {
   const total = 155681148;
   const offset = 49552935;
   assert.equal(
-    getBrowserOfflineResumePlan(resumeResponse({ status: 200, contentLength: total - offset }), offset, total, true).decision,
+    getBrowserOfflineResumePlan(
+      resumeResponse({ status: 200, contentLength: total - offset }),
+      offset,
+      total,
+      true
+    ).decision,
     "restart"
   );
   assert.equal(
-    getBrowserOfflineResumePlan(resumeResponse({ status: 200, contentLength: total }), offset, total, false).decision,
+    getBrowserOfflineResumePlan(
+      resumeResponse({ status: 200, contentLength: total }),
+      offset,
+      total,
+      false
+    ).decision,
     "restart"
   );
   assert.equal(
-    getBrowserOfflineResumePlan(resumeResponse({ status: 200, contentLength: total }), 0, total, false).decision,
+    getBrowserOfflineResumePlan(
+      resumeResponse({ status: 200, contentLength: total }),
+      0,
+      total,
+      false
+    ).decision,
     "append"
   );
   assert.equal(
-    getBrowserOfflineResumePlan(resumeResponse({ status: 206, contentLength: total }), offset, total, true).decision,
+    getBrowserOfflineResumePlan(
+      resumeResponse({ status: 206, contentLength: total }),
+      offset,
+      total,
+      true
+    ).decision,
     "restart"
   );
 });
 
 test("offline media and copy identities keep source fingerprints separate", () => {
-  assert.equal(
-    createOfflineMediaId({ contentType: "movie", mediaId: "tt123" }),
-    "movie-tt123"
-  );
+  assert.equal(createOfflineMediaId({ contentType: "movie", mediaId: "tt123" }), "movie-tt123");
   assert.equal(
     createOfflineMediaId({ contentType: "episode", seriesId: "series-4", season: 2, episode: 7 }),
     "episode-series-4-s2-e7"
@@ -274,20 +307,27 @@ test("offline subtitle identity is stable, media-scoped, and excludes signed URL
     createOfflineSubtitleId({ mediaIdentity: "episode-tt1-s1-e1", fingerprint })
   );
   assert.equal(isOfflineSubtitleFormatSupported(track), true);
-  assert.equal(isOfflineSubtitleFormatSupported({ url: "https://example.test/subtitle.txt" }), false);
+  assert.equal(
+    isOfflineSubtitleFormatSupported({ url: "https://example.test/subtitle.txt" }),
+    false
+  );
 });
 
 test("offline subtitle validation accepts Player-loadable VTT and SRT only", () => {
   assert.equal(detectOfflineSubtitleFormat("WEBVTT\n\n00:00.000 --> 00:01.000\nHello"), "vtt");
   assert.equal(detectOfflineSubtitleFormat("1\n00:00:00,000 --> 00:00:01,000\nHello"), "srt");
   assert.equal(
-    detectOfflineSubtitleFormat("[Script Info]\nTitle: Example\n[Events]\nDialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,Hello"),
+    detectOfflineSubtitleFormat(
+      "[Script Info]\nTitle: Example\n[Events]\nDialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,Hello"
+    ),
     "ass"
   );
   assert.equal(isOfflineSubtitleTextLoadable("WEBVTT\n\n00:00.000 --> 00:01.000\nHello"), true);
   assert.equal(isOfflineSubtitleTextLoadable("<html><body>Not a subtitle</body></html>"), false);
   assert.equal(
-    isOfflineSubtitleTextLoadable("[Script Info]\n[Events]\nDialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,Hello"),
+    isOfflineSubtitleTextLoadable(
+      "[Script Info]\n[Events]\nDialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,Hello"
+    ),
     false
   );
 });
@@ -309,17 +349,36 @@ test("offline all-subtitle selection persists deduped safe descriptors", () => {
   ];
   const seen = new Set();
   const descriptors = tracks
-    .map((track) => ({ fingerprint: createOfflineSubtitleFingerprint(track), lang: track.lang, addonId: track.addonId }))
+    .map((track) => ({
+      fingerprint: createOfflineSubtitleFingerprint(track),
+      lang: track.lang,
+      addonId: track.addonId
+    }))
     .filter((descriptor) => !seen.has(descriptor.fingerprint) && seen.add(descriptor.fingerprint));
   assert.equal(descriptors.length, 2);
-  assert.equal(descriptors.some((descriptor) => descriptor.fingerprint.includes("token=")), false);
+  assert.equal(
+    descriptors.some((descriptor) => descriptor.fingerprint.includes("token=")),
+    false
+  );
   assert.equal(descriptors[0].lang, "en");
 });
 
 test("offline subtitle fingerprints retain distinct releases from one provider and normalize signed ids", () => {
-  const base = { addonName: "AIOStreams", lang: "eng", url: "https://subs.example/file.srt?token=secret" };
-  const releaseA = createOfflineSubtitleFingerprint({ ...base, id: "https://api.example/a?token=one", fileName: "Release.A.srt" });
-  const releaseB = createOfflineSubtitleFingerprint({ ...base, id: "https://api.example/b?token=two", fileName: "Release.B.srt" });
+  const base = {
+    addonName: "AIOStreams",
+    lang: "eng",
+    url: "https://subs.example/file.srt?token=secret"
+  };
+  const releaseA = createOfflineSubtitleFingerprint({
+    ...base,
+    id: "https://api.example/a?token=one",
+    fileName: "Release.A.srt"
+  });
+  const releaseB = createOfflineSubtitleFingerprint({
+    ...base,
+    id: "https://api.example/b?token=two",
+    fileName: "Release.B.srt"
+  });
   assert.notEqual(releaseA, releaseB);
   assert.equal(releaseA.includes("token="), false);
   assert.equal(releaseB.includes("token="), false);

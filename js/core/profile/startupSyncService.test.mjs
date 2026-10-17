@@ -37,7 +37,10 @@ async function loadStartupSyncService() {
             ["home-catalog", dependencyModule("HomeCatalogSettingsSyncService")],
             ["theme", dependencyModule("ThemeManager")],
             ["i18n", dependencyModule("I18n")],
-            ["hydration", `export const SyncPullResult = { SUCCESS_WITH_DATA: "SUCCESS_WITH_DATA", SUCCESS_EMPTY: "SUCCESS_EMPTY", FAILED: "FAILED" }; export const SyncHydrationState = new Proxy({}, { get: (_, key) => globalThis.__startupSyncDeps__.SyncHydrationState?.[key] });`]
+            [
+              "hydration",
+              `export const SyncPullResult = { SUCCESS_WITH_DATA: "SUCCESS_WITH_DATA", SUCCESS_EMPTY: "SUCCESS_EMPTY", FAILED: "FAILED" }; export const SyncHydrationState = new Proxy({}, { get: (_, key) => globalThis.__startupSyncDeps__.SyncHydrationState?.[key] });`
+            ]
           ]);
           for (const [filter, path] of [
             [/authManager\.js$/, "auth"],
@@ -69,12 +72,16 @@ async function loadStartupSyncService() {
       }
     ]
   });
-  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`);
+  return import(
+    `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`
+  );
 }
 
 function deferred() {
   let resolve = null;
-  const promise = new Promise((next) => { resolve = next; });
+  const promise = new Promise((next) => {
+    resolve = next;
+  });
   return { promise, resolve };
 }
 
@@ -110,13 +117,25 @@ function installDependencies({ activeProfileId = "1" } = {}) {
       hasPendingLocalMutation: () => false
     },
     HomeCatalogSettingsSyncService: { pull: async () => false },
-    ThemeManager: { apply: () => { calls.push("theme-apply"); } },
+    ThemeManager: {
+      apply: () => {
+        calls.push("theme-apply");
+      }
+    },
     I18n: {
-      init: async () => { calls.push("i18n-init"); },
-      apply: () => { calls.push("i18n-apply"); }
+      init: async () => {
+        calls.push("i18n-init");
+      },
+      apply: () => {
+        calls.push("i18n-apply");
+      }
     },
     SyncHydrationState: {
-      capture: async (profileId) => ({ profileId: String(profileId), activeProfileId, generation: 1 }),
+      capture: async (profileId) => ({
+        profileId: String(profileId),
+        activeProfileId,
+        generation: 1
+      }),
       isCurrent: async (context) => context.activeProfileId === activeProfileId,
       invalidate: () => {},
       beginPull: async () => true,
@@ -125,7 +144,12 @@ function installDependencies({ activeProfileId = "1" } = {}) {
       allowsAutomaticPush: async () => true
     }
   };
-  return { calls, setActiveProfile: (value) => { activeProfileId = String(value); } };
+  return {
+    calls,
+    setActiveProfile: (value) => {
+      activeProfileId = String(value);
+    }
+  };
 }
 
 test("critical Home hydration waits only for profile settings, catalog settings, and addons", async () => {
@@ -152,7 +176,8 @@ test("slow SIMKL background work does not delay Collections or other independent
   installDependencies();
   const simklCredentials = deferred();
   const started = [];
-  globalThis.__startupSyncDeps__.SimklCredentialSyncService.pullFromRemote = () => simklCredentials.promise;
+  globalThis.__startupSyncDeps__.SimklCredentialSyncService.pullFromRemote = () =>
+    simklCredentials.promise;
   globalThis.__startupSyncDeps__.CollectionSyncService.pull = async () => {
     started.push("collections");
     return { result: "SUCCESS_EMPTY" };

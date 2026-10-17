@@ -20,8 +20,7 @@ function positiveSeconds(value, fallback = 5) {
 }
 
 export function isDeviceAuthorizationExpired(expiresAt, now = Date.now()) {
-  const timestamp =
-    typeof expiresAt === "number" ? expiresAt : Date.parse(String(expiresAt || ""));
+  const timestamp = typeof expiresAt === "number" ? expiresAt : Date.parse(String(expiresAt || ""));
   return Number.isFinite(timestamp) && timestamp <= now;
 }
 

@@ -69,13 +69,13 @@ function isProfileScopedEnvelope(rawValue) {
     const value = JSON.parse(rawValue);
     return Boolean(
       value &&
-        typeof value === "object" &&
-        !Array.isArray(value) &&
-        value.__profileScoped === true &&
-        Number(value.version || 0) === PROFILE_SCOPED_VERSION &&
-        value.profiles &&
-        typeof value.profiles === "object" &&
-        !Array.isArray(value.profiles)
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      value.__profileScoped === true &&
+      Number(value.version || 0) === PROFILE_SCOPED_VERSION &&
+      value.profiles &&
+      typeof value.profiles === "object" &&
+      !Array.isArray(value.profiles)
     );
   } catch (_) {
     return false;

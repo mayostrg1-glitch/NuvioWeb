@@ -3,7 +3,9 @@ function text(value) {
 }
 
 function safeIdentityPart(value) {
-  return text(value).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return text(value)
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function normalizeContentType(value) {
@@ -20,7 +22,9 @@ export function createOfflineMediaId(input = {}) {
     if (!seriesId || !Number.isFinite(season) || !Number.isFinite(episode)) return "";
     return `episode-${seriesId}-s${season}-e${episode}`;
   }
-  const movieId = safeIdentityPart(input.movieId || input.mediaId || input.itemId || input.tmdbId || input.imdbId);
+  const movieId = safeIdentityPart(
+    input.movieId || input.mediaId || input.itemId || input.tmdbId || input.imdbId
+  );
   return movieId ? `movie-${movieId}` : "";
 }
 
@@ -78,11 +82,15 @@ export function groupDownloadedSeries(downloads = []) {
       };
       // Do not use an episode still as Series artwork. A later online-enriched
       // record may fill any missing canonical Series artwork safely.
-      group.title ||= text(download.displaySnapshot?.title || download.seriesTitle || download.title);
+      group.title ||= text(
+        download.displaySnapshot?.title || download.seriesTitle || download.title
+      );
       group.poster ||= text(download.displaySnapshot?.poster);
       group.backdrop ||= text(download.displaySnapshot?.backdrop);
       group.logo ||= text(download.displaySnapshot?.logo);
-      group.seriesPosterDownloadId ||= download.localSeriesPosterFile ? text(download.downloadId) : "";
+      group.seriesPosterDownloadId ||= download.localSeriesPosterFile
+        ? text(download.downloadId)
+        : "";
       group.episodes.push(download);
       groups.set(key, group);
     });
@@ -120,7 +128,9 @@ export function groupDownloadedMovies(downloads = []) {
   (downloads || [])
     .filter((download) => download.status === "completed" && download.contentType === "movie")
     .forEach((download) => {
-      const key = text(download.mediaIdentity || download.mediaId || download.movieId || download.downloadId);
+      const key = text(
+        download.mediaIdentity || download.mediaId || download.movieId || download.downloadId
+      );
       if (!key) return;
       const current = movies.get(key);
       if (!current || Number(download.completedAt || 0) > Number(current.completedAt || 0)) {

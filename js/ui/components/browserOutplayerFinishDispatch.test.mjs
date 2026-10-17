@@ -14,7 +14,12 @@ test("the collected Outplayer finished envelope reaches explicit completion befo
   };
   const result = await dispatchOutplayerExplicitFinish({
     report,
-    controller: { completePlayback: async (...args) => { calls.push(args); return true; } },
+    controller: {
+      completePlayback: async (...args) => {
+        calls.push(args);
+        return true;
+      }
+    },
     log: () => {}
   });
   assert.deepEqual(result, { handled: true, applied: true });
@@ -23,7 +28,10 @@ test("the collected Outplayer finished envelope reaches explicit completion befo
 
 test("a non-Outplayer report remains with its provider dispatcher", async () => {
   const result = await dispatchOutplayerExplicitFinish({
-    report: { outcome: "finished", handoff: { playerMode: "infuse", progressContext: { itemId: "movie:1" } } },
+    report: {
+      outcome: "finished",
+      handoff: { playerMode: "infuse", progressContext: { itemId: "movie:1" } }
+    },
     controller: {},
     log: () => {}
   });

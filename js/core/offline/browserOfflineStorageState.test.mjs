@@ -11,9 +11,21 @@ test("offline storage summary separates completed media, partial files, subtitle
       { downloadId: "paused", status: "paused" },
       { downloadId: "failed", status: "failed" }
     ],
-    [{ subtitleId: "sub", status: "completed" }, { subtitleId: "stale", status: "failed" }],
-    new Map([["movie", 100], ["episode-1", 20], ["episode-2", 20], ["paused", 10], ["failed", 5]]),
-    new Map([["sub", 3], ["stale", 2]])
+    [
+      { subtitleId: "sub", status: "completed" },
+      { subtitleId: "stale", status: "failed" }
+    ],
+    new Map([
+      ["movie", 100],
+      ["episode-1", 20],
+      ["episode-2", 20],
+      ["paused", 10],
+      ["failed", 5]
+    ]),
+    new Map([
+      ["sub", 3],
+      ["stale", 2]
+    ])
   );
   assert.deepEqual(summary, {
     mediaBytes: 140,

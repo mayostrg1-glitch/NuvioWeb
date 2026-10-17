@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { shouldRefreshContinueWatchingForChange } = await import("./continueWatchingRefreshPolicy.js");
+const { shouldRefreshContinueWatchingForChange } =
+  await import("./continueWatchingRefreshPolicy.js");
 
 test("an authoritative upsert for the active profile triggers a refresh", () => {
   assert.equal(
@@ -55,10 +56,7 @@ test("replaceForProfile always triggers a refresh for the active profile, regard
 
 test("replaceForProfile for an inactive profile does not trigger a refresh", () => {
   assert.equal(
-    shouldRefreshContinueWatchingForChange(
-      { profileId: "2", reason: "replaceForProfile" },
-      "1"
-    ),
+    shouldRefreshContinueWatchingForChange({ profileId: "2", reason: "replaceForProfile" }, "1"),
     false
   );
 });

@@ -31,29 +31,41 @@ test("automatic season download chooses the first eligible normal source and ski
     concurrency: 2,
     resolveStreams: async (episode) => ({
       status: "success",
-      data: [{ addonName: "A", streams: episode.id === "s1e2" ? [{ id: "hls" }] : [{ id: "bad" }, { id: "good" }] }]
+      data: [
+        {
+          addonName: "A",
+          streams: episode.id === "s1e2" ? [{ id: "hls" }] : [{ id: "bad" }, { id: "good" }]
+        }
+      ]
     }),
     buildContext: (episode, stream) => ({ episode, stream }),
     canQueue: (context) => context.stream.id === "good"
   });
-  assert.deepEqual(prepared.map((entry) => [entry.episode.id, entry.status, entry.stream?.id]), [
-    ["s1e1", "selected", "good"],
-    ["s1e2", "unavailable", undefined],
-    ["s1e3", "selected", "good"]
-  ]);
+  assert.deepEqual(
+    prepared.map((entry) => [entry.episode.id, entry.status, entry.stream?.id]),
+    [
+      ["s1e1", "selected", "good"],
+      ["s1e2", "unavailable", undefined],
+      ["s1e3", "selected", "good"]
+    ]
+  );
 });
 
 test("manual selections enqueue sequentially after existing queue jobs", async () => {
   const queued = ["movie-a", "movie-b"];
   await enqueueSeasonDownloadSelections(
-    [
-      { context: { id: "s1e1" } },
-      { context: { id: "s1e3" } }
-    ],
+    [{ context: { id: "s1e1" } }, { context: { id: "s1e3" } }],
     async (context) => queued.push(context.id)
   );
   assert.deepEqual(queued, ["movie-a", "movie-b", "s1e1", "s1e3"]);
-  assert.equal(firstEligibleSeasonDownloadStream([{ id: "no" }, { id: "yes" }], (stream) => stream, (stream) => stream.id === "yes").stream.id, "yes");
+  assert.equal(
+    firstEligibleSeasonDownloadStream(
+      [{ id: "no" }, { id: "yes" }],
+      (stream) => stream,
+      (stream) => stream.id === "yes"
+    ).stream.id,
+    "yes"
+  );
 });
 
 test("automatic season contexts preserve all-subtitle descriptors per episode", async () => {
@@ -64,7 +76,10 @@ test("automatic season contexts preserve all-subtitle descriptors per episode", 
       episode,
       stream,
       offlineSubtitleMode: "all",
-      offlineSubtitleDescriptors: [{ fingerprint: `${episode.id}-en` }, { fingerprint: `${episode.id}-id` }]
+      offlineSubtitleDescriptors: [
+        { fingerprint: `${episode.id}-en` },
+        { fingerprint: `${episode.id}-id` }
+      ]
     }),
     canQueue: () => true
   });

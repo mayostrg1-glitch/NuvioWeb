@@ -19,24 +19,36 @@ export function isBrowserPlayerGesturePointer(event) {
   return pointerType === "touch" || pointerType === "pen";
 }
 
-export function isWithinGestureTolerance(start, end, tolerance = PLAYER_GESTURE_SPATIAL_TOLERANCE_PX) {
-  return Math.hypot(Number(end?.x || 0) - Number(start?.x || 0), Number(end?.y || 0) - Number(start?.y || 0)) <= tolerance;
+export function isWithinGestureTolerance(
+  start,
+  end,
+  tolerance = PLAYER_GESTURE_SPATIAL_TOLERANCE_PX
+) {
+  return (
+    Math.hypot(
+      Number(end?.x || 0) - Number(start?.x || 0),
+      Number(end?.y || 0) - Number(start?.y || 0)
+    ) <= tolerance
+  );
 }
 
 export function getBrowserPlayerVideoTapAction(controlsVisible) {
   return controlsVisible ? "toggle-playback" : "reveal-controls";
 }
 
-export function bindBrowserPlayerGestures(surface, {
-  isInteractiveTarget = () => false,
-  onSeek = () => {},
-  onHoldChange = () => {},
-  getSingleTapContext = () => null,
-  onSingleTap = () => {},
-  schedule = setTimeout,
-  cancelScheduled = clearTimeout,
-  getNow = Date.now
-} = {}) {
+export function bindBrowserPlayerGestures(
+  surface,
+  {
+    isInteractiveTarget = () => false,
+    onSeek = () => {},
+    onHoldChange = () => {},
+    getSingleTapContext = () => null,
+    onSingleTap = () => {},
+    schedule = setTimeout,
+    cancelScheduled = clearTimeout,
+    getNow = Date.now
+  } = {}
+) {
   if (!(surface instanceof HTMLElement)) return () => {};
 
   let active = null;
@@ -71,11 +83,17 @@ export function bindBrowserPlayerGestures(surface, {
     if (current?.holdTimer) cancelScheduled(current.holdTimer);
     clearPendingTap();
   };
-  const targetIsValid = (target) => target instanceof Element && surface.contains(target) && !isInteractiveTarget(target);
+  const targetIsValid = (target) =>
+    target instanceof Element && surface.contains(target) && !isInteractiveTarget(target);
   const pointFor = (event) => ({ x: Number(event?.clientX || 0), y: Number(event?.clientY || 0) });
 
   const onPointerDown = (event) => {
-    if (!isBrowserPlayerGesturePointer(event) || !targetIsValid(event.target) || event.isPrimary === false) return;
+    if (
+      !isBrowserPlayerGesturePointer(event) ||
+      !targetIsValid(event.target) ||
+      event.isPrimary === false
+    )
+      return;
     if (active) {
       // A second touch is a system multi-touch gesture, not a player gesture.
       cancelActive();
@@ -108,7 +126,13 @@ export function bindBrowserPlayerGestures(surface, {
 
   const onPointerMove = (event) => {
     if (!active || active.pointerId !== event.pointerId || active.holdActive) return;
-    if (!isWithinGestureTolerance(active.point, pointFor(event), PLAYER_GESTURE_HOLD_MOVE_TOLERANCE_PX)) {
+    if (
+      !isWithinGestureTolerance(
+        active.point,
+        pointFor(event),
+        PLAYER_GESTURE_HOLD_MOVE_TOLERANCE_PX
+      )
+    ) {
       active.moved = true;
       cancelScheduled(active.holdTimer);
       active.holdTimer = null;
@@ -167,8 +191,12 @@ export function bindBrowserPlayerGestures(surface, {
   };
 
   const onDoubleClick = (event) => {
-    if (getNow() < ignoreDoubleClickUntil || event.button !== 0 || !targetIsValid(event.target)) return;
-    const zone = getBrowserPlayerGestureZone(surface.getBoundingClientRect(), Number(event.clientX || 0));
+    if (getNow() < ignoreDoubleClickUntil || event.button !== 0 || !targetIsValid(event.target))
+      return;
+    const zone = getBrowserPlayerGestureZone(
+      surface.getBoundingClientRect(),
+      Number(event.clientX || 0)
+    );
     if (zone === "center") return;
     clearPendingTap();
     onSeek(zone);

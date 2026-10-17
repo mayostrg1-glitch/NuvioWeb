@@ -2,7 +2,9 @@ const HORIZONTAL_INTENT_THRESHOLD_PX = 8;
 const CLICK_SUPPRESSION_WINDOW_MS = 700;
 
 function findChangedTouch(event, identifier) {
-  return Array.from(event?.changedTouches || []).find((touch) => touch.identifier === identifier) || null;
+  return (
+    Array.from(event?.changedTouches || []).find((touch) => touch.identifier === identifier) || null
+  );
 }
 
 // Browser tab activation is delegated by each screen. Native touch scrolling can
@@ -83,10 +85,7 @@ export function bindBrowserHorizontalTabScroll(container, tabRows = []) {
     if (!touch) return;
     const deltaX = touch.clientX - activeTouch.startX;
     const deltaY = touch.clientY - activeTouch.startY;
-    if (
-      Math.abs(deltaX) >= HORIZONTAL_INTENT_THRESHOLD_PX &&
-      Math.abs(deltaX) > Math.abs(deltaY)
-    ) {
+    if (Math.abs(deltaX) >= HORIZONTAL_INTENT_THRESHOLD_PX && Math.abs(deltaX) > Math.abs(deltaY)) {
       activeTouch.horizontalIntent = true;
     }
   };

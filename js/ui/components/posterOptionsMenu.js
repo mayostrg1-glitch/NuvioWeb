@@ -120,9 +120,9 @@ export function getPosterOptions(state, options = {}) {
           ? t("library_manage_lists", {}, "Manage Lists")
           : state.sourceMode === LibrarySourceMode.SIMKL
             ? "Manage Simkl Status"
-          : state.isSaved
-            ? t("detail.removeFromLibrary", {}, "Remove from Library")
-            : t("detail.addToLibrary", {}, "Add to Library")
+            : state.isSaved
+              ? t("detail.removeFromLibrary", {}, "Remove from Library")
+              : t("detail.addToLibrary", {}, "Add to Library")
     });
   }
   if (includeWatched) {
@@ -312,9 +312,7 @@ export class PosterOptionsDialogController {
       // Right-click anchors to the pointer; Hold Enter has no coordinates, so
       // it anchors to the focused card and restores focus there on close.
       const focused =
-        this.invocation?.type === "pointer"
-          ? null
-          : document.querySelector(".focusable.focused");
+        this.invocation?.type === "pointer" ? null : document.querySelector(".focusable.focused");
       return adopt(
         openDesktopContextMenu({
           x: Number(this.invocation?.x || 0),
@@ -434,11 +432,15 @@ export class PosterOptionsDialogController {
       normalizedAction === "confirmDestructiveSimklRemoval"
     ) {
       try {
-        await libraryRepository.applyMembershipChanges(this.listPicker.item, {
-          desiredMembership: this.listPicker.membership || {}
-        }, {
-          destructiveRemovalConfirmed: normalizedAction === "confirmDestructiveSimklRemoval"
-        });
+        await libraryRepository.applyMembershipChanges(
+          this.listPicker.item,
+          {
+            desiredMembership: this.listPicker.membership || {}
+          },
+          {
+            destructiveRemovalConfirmed: normalizedAction === "confirmDestructiveSimklRemoval"
+          }
+        );
         this.onChanged?.(this.state);
         this.destroy();
       } catch (error) {

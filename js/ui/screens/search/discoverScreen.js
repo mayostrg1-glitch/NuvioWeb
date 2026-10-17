@@ -1583,14 +1583,14 @@ export const DiscoverScreen = {
           useDesktopNavigation
             ? renderDesktopNavigation({ selectedRoute: "search", profile: this.sidebarProfile })
             : showRootSidebar
-            ? renderRootSidebar({
-                selectedRoute: "discover",
-                profile: this.sidebarProfile,
-                layout: this.layoutPrefs,
-                expanded: Boolean(this.sidebarExpanded),
-                pillIconOnly: Boolean(this.pillIconOnly)
-              })
-            : ""
+              ? renderRootSidebar({
+                  selectedRoute: "discover",
+                  profile: this.sidebarProfile,
+                  layout: this.layoutPrefs,
+                  expanded: Boolean(this.sidebarExpanded),
+                  pillIconOnly: Boolean(this.pillIconOnly)
+                })
+              : ""
         }
         <main class="home-main discover-main${enterClass}">
           <div class="seeall-shell discover-seeall-shell">
@@ -1642,9 +1642,11 @@ export const DiscoverScreen = {
     this.buildNavigationModel();
     if (useDesktopNavigation) {
       bindDesktopNavigationEvents(this.container);
-      this.container.querySelector('[data-action="desktopDiscoverBack"]')?.addEventListener("click", () => {
-        void Router.back();
-      });
+      this.container
+        .querySelector('[data-action="desktopDiscoverBack"]')
+        ?.addEventListener("click", () => {
+          void Router.back();
+        });
     } else if (showRootSidebar) {
       bindRootSidebarEvents(this.container, {
         currentRoute: "discover",

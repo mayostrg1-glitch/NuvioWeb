@@ -15,7 +15,11 @@ export function orderSeasonEpisodes(episodes = []) {
   );
 }
 
-export function getMissingSeasonEpisodes({ episodes = [], completedMediaIds = new Set(), createMediaId }) {
+export function getMissingSeasonEpisodes({
+  episodes = [],
+  completedMediaIds = new Set(),
+  createMediaId
+}) {
   return orderSeasonEpisodes(episodes).filter((episode) => {
     const mediaId = typeof createMediaId === "function" ? createMediaId(episode) : "";
     return !mediaId || !completedMediaIds.has(mediaId);
@@ -32,11 +36,15 @@ export function flattenSeasonDownloadStreams(streamResult = {}) {
     (Array.isArray(group.streams) ? group.streams : []).forEach((stream = {}, index) => {
       streams.push({
         ...stream,
-        id: stream.id || `${addonName}-${index}-${stream.url || stream.externalUrl || stream.infoHash || ""}`,
+        id:
+          stream.id ||
+          `${addonName}-${index}-${stream.url || stream.externalUrl || stream.infoHash || ""}`,
         addonId: stream.addonId || group.addonId || group.streamOrigin?.addonId || "",
         addonName: stream.addonName || addonName,
         addonLogo: stream.addonLogo || group.addonLogo || "",
-        addonOrderIndex: Number(stream.addonOrderIndex ?? group.addonOrderIndex ?? Number.MAX_SAFE_INTEGER),
+        addonOrderIndex: Number(
+          stream.addonOrderIndex ?? group.addonOrderIndex ?? Number.MAX_SAFE_INTEGER
+        ),
         streamOrigin: { ...(group.streamOrigin || {}), ...(stream.streamOrigin || {}) },
         behaviorHints: stream.behaviorHints || stream.raw?.behaviorHints || {},
         raw: stream.raw || stream

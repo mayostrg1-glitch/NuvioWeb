@@ -16,7 +16,10 @@ import {
   offlineSubtitleExtension
 } from "./offlineSubtitleIdentity.js";
 import { summarizeBrowserOfflineStorage } from "./browserOfflineStorageState.js";
-import { createOfflineDisplaySnapshot, mergeOfflineDisplaySnapshot } from "./offlineDisplaySnapshot.js";
+import {
+  createOfflineDisplaySnapshot,
+  mergeOfflineDisplaySnapshot
+} from "./offlineDisplaySnapshot.js";
 import {
   createBrowserOfflineDownloadRequestInit,
   getBrowserOfflineResumePlan,
@@ -63,7 +66,9 @@ function text(value) {
 }
 
 function safeIdentityPart(value) {
-  return text(value).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return text(value)
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function safePublicUrl(value) {
@@ -157,7 +162,8 @@ async function withStore(mode, callback) {
       return;
     }
     transaction.oncomplete = () => resolve(result?.result ?? result);
-    transaction.onerror = () => reject(transaction.error || result?.error || new Error("Offline storage failed."));
+    transaction.onerror = () =>
+      reject(transaction.error || result?.error || new Error("Offline storage failed."));
     transaction.onabort = () => reject(transaction.error || new Error("Offline storage aborted."));
   });
 }
@@ -175,15 +181,20 @@ async function withSubtitleStore(mode, callback) {
       return;
     }
     transaction.oncomplete = () => resolve(result?.result ?? result);
-    transaction.onerror = () => reject(transaction.error || result?.error || new Error("Offline subtitle storage failed."));
-    transaction.onabort = () => reject(transaction.error || new Error("Offline subtitle storage aborted."));
+    transaction.onerror = () =>
+      reject(transaction.error || result?.error || new Error("Offline subtitle storage failed."));
+    transaction.onabort = () =>
+      reject(transaction.error || new Error("Offline subtitle storage aborted."));
   });
 }
 
 async function readDownload(downloadId) {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
-    const request = database.transaction(DOWNLOAD_STORE, "readonly").objectStore(DOWNLOAD_STORE).get(downloadId);
+    const request = database
+      .transaction(DOWNLOAD_STORE, "readonly")
+      .objectStore(DOWNLOAD_STORE)
+      .get(downloadId);
     request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => reject(request.error || new Error("Could not read offline download."));
   });
@@ -192,7 +203,10 @@ async function readDownload(downloadId) {
 async function listAllDownloads() {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
-    const request = database.transaction(DOWNLOAD_STORE, "readonly").objectStore(DOWNLOAD_STORE).getAll();
+    const request = database
+      .transaction(DOWNLOAD_STORE, "readonly")
+      .objectStore(DOWNLOAD_STORE)
+      .getAll();
     request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
     request.onerror = () => reject(request.error || new Error("Could not list offline downloads."));
   });
@@ -212,7 +226,10 @@ async function removeMetadata(downloadId) {
 async function listAllOfflineSubtitles() {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
-    const request = database.transaction(SUBTITLE_STORE, "readonly").objectStore(SUBTITLE_STORE).getAll();
+    const request = database
+      .transaction(SUBTITLE_STORE, "readonly")
+      .objectStore(SUBTITLE_STORE)
+      .getAll();
     request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
     request.onerror = () => reject(request.error || new Error("Could not list offline subtitles."));
   });
@@ -221,7 +238,10 @@ async function listAllOfflineSubtitles() {
 async function readOfflineSubtitle(subtitleId) {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
-    const request = database.transaction(SUBTITLE_STORE, "readonly").objectStore(SUBTITLE_STORE).get(subtitleId);
+    const request = database
+      .transaction(SUBTITLE_STORE, "readonly")
+      .objectStore(SUBTITLE_STORE)
+      .get(subtitleId);
     request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => reject(request.error || new Error("Could not read offline subtitle."));
   });
@@ -257,10 +277,18 @@ async function cacheArtwork(download, kind, sourceUrl) {
   const response = await fetch(url);
   if (!response.ok) return "";
   const image = await response.blob();
-  if (!image.size || !String(image.type || "").toLowerCase().startsWith("image/")) return "";
+  if (
+    !image.size ||
+    !String(image.type || "")
+      .toLowerCase()
+      .startsWith("image/")
+  )
+    return "";
   const fileName = artworkFileName(download.downloadId, kind);
   const directory = await getArtworkDirectory(true);
-  const writable = await (await directory.getFileHandle(fileName, { create: true })).createWritable();
+  const writable = await (
+    await directory.getFileHandle(fileName, { create: true })
+  ).createWritable();
   try {
     await writable.write(image);
   } finally {
@@ -301,10 +329,14 @@ export async function getBrowserOfflineArtwork(downloadId, kind = "poster") {
         ? download?.localSeriesPosterFile
         : kind === "logo"
           ? download?.localLogoFile
-        : download?.localPosterFile;
+          : download?.localPosterFile;
   if (download?.status !== "completed" || !fileName) return null;
   try {
-    const file = await (await getArtworkDirectory(false)).getFileHandle(fileName).then((handle) => handle.getFile());
+    const file = await (
+      await getArtworkDirectory(false)
+    )
+      .getFileHandle(fileName)
+      .then((handle) => handle.getFile());
     return { download, file };
   } catch (_) {
     return null;
@@ -406,27 +438,37 @@ function buildMetadata(input, downloadId, fileName) {
     episodeOverview: text(input.episodeOverview || input.overview),
     episodeRuntimeMinutes: Number(input.episodeRuntimeMinutes || input.runtimeMinutes || 0) || 0,
     displaySnapshot: createOfflineDisplaySnapshot(input.displaySnapshot || input),
-    year: text(input.year || input.releaseYear || input.releaseInfo).match(/\b(19|20)\d{2}\b/)?.[0] || "",
+    year:
+      text(input.year || input.releaseYear || input.releaseInfo).match(/\b(19|20)\d{2}\b/)?.[0] ||
+      "",
     contentType,
     mediaId: text(input.mediaId || input.itemId || input.tmdbId || input.imdbId),
-    mediaIdType: text(input.mediaIdType || (input.tmdbId ? "tmdb" : input.imdbId ? "imdb" : "item")),
+    mediaIdType: text(
+      input.mediaIdType || (input.tmdbId ? "tmdb" : input.imdbId ? "imdb" : "item")
+    ),
     movieId: contentType === "movie" ? text(input.movieId || input.mediaId || input.itemId) : "",
     seriesId: contentType === "episode" ? seriesId : "",
-    seriesTitle: contentType === "episode" ? text(input.seriesTitle || input.itemTitle || input.title) : "",
+    seriesTitle:
+      contentType === "episode" ? text(input.seriesTitle || input.itemTitle || input.title) : "",
     seasonNumber: contentType === "episode" && Number.isFinite(seasonNumber) ? seasonNumber : null,
-    episodeNumber: contentType === "episode" && Number.isFinite(episodeNumber) ? episodeNumber : null,
+    episodeNumber:
+      contentType === "episode" && Number.isFinite(episodeNumber) ? episodeNumber : null,
     episodeId: contentType === "episode" ? text(input.episodeId || input.videoId) : "",
     sourceName: text(input.sourceName || input.addonName),
     sourceAddonId: text(input.stream?.addonId || input.stream?.streamOrigin?.addonId),
     quality: text(input.stream?.quality || input.stream?.qualityValue),
-    videoSize: Number(input.stream?.behaviorHints?.videoSize || input.stream?.videoSize || 0) || null,
+    videoSize:
+      Number(input.stream?.behaviorHints?.videoSize || input.stream?.videoSize || 0) || null,
     filename: text(input.filename),
     mimeType: text(input.mimeType) || "video/mp4",
     downloadedBytes: 0,
     // Stream metadata is the durable total when a cross-origin response hides
     // Content-Length. It lets a later 206 range response pass the exact
     // remainder validation without ever appending an ambiguous response.
-    totalBytes: Number(input.stream?.behaviorHints?.videoSize || input.stream?.videoSize || input.videoSize || 0) || null,
+    totalBytes:
+      Number(
+        input.stream?.behaviorHints?.videoSize || input.stream?.videoSize || input.videoSize || 0
+      ) || null,
     opfsPath: `${OPFS_DIRECTORY_NAME}/${fileName}`,
     fileName,
     offlineSubtitle: subtitleSelection.descriptors[0] || null,
@@ -528,7 +570,10 @@ export function getOfflineSubtitleSelection(input = {}) {
   const descriptors = getSafeOfflineSubtitleDescriptors(
     input.offlineSubtitleDescriptors || input.offlineSubtitles || input.offlineSubtitle
   );
-  const mode = normalizeOfflineSubtitleMode(input.offlineSubtitleMode || input.subtitleMode, descriptors);
+  const mode = normalizeOfflineSubtitleMode(
+    input.offlineSubtitleMode || input.subtitleMode,
+    descriptors
+  );
   return { mode, descriptors: mode === "none" ? [] : descriptors };
 }
 
@@ -563,10 +608,12 @@ function queuedRequestForInput(input = {}) {
 
 function directUrlForStream(stream = {}) {
   const candidates = [stream.url, stream.externalUrl, stream.raw?.url, stream.raw?.externalUrl];
-  return candidates.find(
-    (candidate) =>
-      isHttpUrl(candidate) && !isMagnetUrl(candidate) && !isSegmentedPlayback(stream, candidate)
-  ) || "";
+  return (
+    candidates.find(
+      (candidate) =>
+        isHttpUrl(candidate) && !isMagnetUrl(candidate) && !isSegmentedPlayback(stream, candidate)
+    ) || ""
+  );
 }
 
 function resolvedStreamMetadata(stream = {}, result = {}) {
@@ -574,7 +621,8 @@ function resolvedStreamMetadata(stream = {}, result = {}) {
     ...stream,
     url: result.stream?.url || stream.url || "",
     mimeType: result.stream?.mimeType || stream.mimeType || stream.raw?.mimeType || "",
-    behaviorHints: result.stream?.behaviorHints || stream.behaviorHints || stream.raw?.behaviorHints || {}
+    behaviorHints:
+      result.stream?.behaviorHints || stream.behaviorHints || stream.raw?.behaviorHints || {}
   };
 }
 
@@ -582,9 +630,9 @@ export function isBrowserOfflineDownloadSupported() {
   const storage = globalThis.navigator?.storage;
   return Boolean(
     storage &&
-      typeof storage.getDirectory === "function" &&
-      globalThis.indexedDB &&
-      typeof globalThis.fetch === "function"
+    typeof storage.getDirectory === "function" &&
+    globalThis.indexedDB &&
+    typeof globalThis.fetch === "function"
   );
 }
 
@@ -692,12 +740,19 @@ export async function listOfflineDownloads() {
 
 export async function isMovieDownloaded(mediaId) {
   return (await listOfflineDownloads()).some(
-    (download) => download.status === "completed" && download.mediaIdentity === createOfflineMediaId({ contentType: "movie", mediaId })
+    (download) =>
+      download.status === "completed" &&
+      download.mediaIdentity === createOfflineMediaId({ contentType: "movie", mediaId })
   );
 }
 
 export async function isEpisodeDownloaded(seriesId, seasonNumber, episodeNumber) {
-  const mediaIdentity = createOfflineMediaId({ contentType: "episode", seriesId, seasonNumber, episodeNumber });
+  const mediaIdentity = createOfflineMediaId({
+    contentType: "episode",
+    seriesId,
+    seasonNumber,
+    episodeNumber
+  });
   return (await listOfflineDownloads()).some(
     (download) => download.status === "completed" && download.mediaIdentity === mediaIdentity
   );
@@ -706,7 +761,9 @@ export async function isEpisodeDownloaded(seriesId, seasonNumber, episodeNumber)
 export async function listOfflineDownloadsForMedia(input = {}) {
   const mediaIdentity = createOfflineMediaId(input);
   return (await listOfflineDownloads()).filter(
-    (download) => download.status === "completed" && (download.mediaIdentity || createOfflineMediaId(download)) === mediaIdentity
+    (download) =>
+      download.status === "completed" &&
+      (download.mediaIdentity || createOfflineMediaId(download)) === mediaIdentity
   );
 }
 
@@ -714,10 +771,11 @@ export async function listOfflineSubtitles(input = {}) {
   if (!isBrowserOfflineDownloadSupported()) return [];
   const mediaIdentity = text(input.mediaIdentity || createOfflineMediaId(input));
   const offlineCopyId = text(input.offlineCopyId || input.downloadId);
-  return (await listAllOfflineSubtitles()).filter((subtitle) =>
-    subtitle?.status === "completed" &&
-    (!mediaIdentity || subtitle.mediaIdentity === mediaIdentity) &&
-    (!offlineCopyId || subtitle.offlineCopyId === offlineCopyId)
+  return (await listAllOfflineSubtitles()).filter(
+    (subtitle) =>
+      subtitle?.status === "completed" &&
+      (!mediaIdentity || subtitle.mediaIdentity === mediaIdentity) &&
+      (!offlineCopyId || subtitle.offlineCopyId === offlineCopyId)
   );
 }
 
@@ -773,7 +831,10 @@ export async function downloadBrowserOfflineSubtitle(input = {}) {
   let writtenFileName = "";
   try {
     const response = await fetch(track.url, {
-      headers: input.requestHeaders && typeof input.requestHeaders === "object" ? input.requestHeaders : undefined
+      headers:
+        input.requestHeaders && typeof input.requestHeaders === "object"
+          ? input.requestHeaders
+          : undefined
     });
     if (!response.ok) throw new Error(`Subtitle download failed (${response.status})`);
     const sourceBytes = await response.arrayBuffer();
@@ -783,7 +844,10 @@ export async function downloadBrowserOfflineSubtitle(input = {}) {
     const loadable = isOfflineSubtitleTextLoadable(body);
     if (!body.trim()) throw new Error("Subtitle download was empty.");
     if (!loadable) {
-      const reason = detectedFormat === "ass" ? "ASS/SSA subtitle playback is unsupported." : "Subtitle response is not a supported text track.";
+      const reason =
+        detectedFormat === "ass"
+          ? "ASS/SSA subtitle playback is unsupported."
+          : "Subtitle response is not a supported text track.";
       throw new Error(reason);
     }
     const extension = detectedFormat;
@@ -791,7 +855,9 @@ export async function downloadBrowserOfflineSubtitle(input = {}) {
     writtenFileName = fileName;
     const bytes = new Blob([sourceBytes], { type: "text/plain" });
     const directory = await getSubtitlesDirectory(true);
-    const writable = await (await directory.getFileHandle(fileName, { create: true })).createWritable();
+    const writable = await (
+      await directory.getFileHandle(fileName, { create: true })
+    ).createWritable();
     await writable.write(bytes);
     await writable.close();
     const completed = await writeOfflineSubtitle({
@@ -911,9 +977,10 @@ export async function getBrowserOfflineStorageSummary() {
   let persistent = null;
   try {
     estimate = (await globalThis.navigator.storage.estimate?.()) || {};
-    persistent = typeof globalThis.navigator.storage.persisted === "function"
-      ? await globalThis.navigator.storage.persisted()
-      : null;
+    persistent =
+      typeof globalThis.navigator.storage.persisted === "function"
+        ? await globalThis.navigator.storage.persisted()
+        : null;
   } catch (_) {}
   return {
     supported: true,
@@ -921,17 +988,25 @@ export async function getBrowserOfflineStorageSummary() {
     usage: Number.isFinite(Number(estimate.usage)) ? Number(estimate.usage) : null,
     quota: Number.isFinite(Number(estimate.quota)) ? Number(estimate.quota) : null,
     persistent,
-    canRequestPersistent: typeof globalThis.navigator.storage.persist === "function",
+    canRequestPersistent: typeof globalThis.navigator.storage.persist === "function"
   };
 }
 
 export async function requestBrowserOfflinePersistentStorage() {
-  if (!isBrowserOfflineDownloadSupported() || typeof globalThis.navigator.storage.persist !== "function") return null;
+  if (
+    !isBrowserOfflineDownloadSupported() ||
+    typeof globalThis.navigator.storage.persist !== "function"
+  )
+    return null;
   return (await globalThis.navigator.storage.persist()) === true;
 }
 
 function assertNoActiveOfflineDownloads(downloads = []) {
-  if (downloads.some((download) => download.status === "downloading" || activeDownloads.has(download.downloadId))) {
+  if (
+    downloads.some(
+      (download) => download.status === "downloading" || activeDownloads.has(download.downloadId)
+    )
+  ) {
     throw new Error("Pause or finish the active download before cleaning offline storage.");
   }
 }
@@ -940,7 +1015,9 @@ export async function deleteBrowserOfflineIncompleteDownloads() {
   const downloads = await listAllDownloads();
   assertNoActiveOfflineDownloads(downloads);
   const incomplete = downloads.filter((download) => download.status !== "completed");
-  await Promise.all(incomplete.map((download) => deleteBrowserOfflineDownload(download.downloadId)));
+  await Promise.all(
+    incomplete.map((download) => deleteBrowserOfflineDownload(download.downloadId))
+  );
   return incomplete.length;
 }
 
@@ -968,16 +1045,17 @@ export function canQueueBrowserOfflineDownload(input = {}) {
   const stream = input.stream || {};
   return Boolean(
     createOfflineDownloadId(input) &&
-      canResolveBrowserOfflineDownload(stream, {
-        season: input.season ?? null,
-        episode: input.episode ?? null
-      })
+    canResolveBrowserOfflineDownload(stream, {
+      season: input.season ?? null,
+      episode: input.episode ?? null
+    })
   );
 }
 
 export async function createQueuedBrowserOfflineDownload(input = {}, queueSequence) {
   const capabilities = await initializeBrowserOfflineDownloads();
-  if (!capabilities.supported) throw new Error("Offline downloads are unavailable in this browser.");
+  if (!capabilities.supported)
+    throw new Error("Offline downloads are unavailable in this browser.");
   if (!canQueueBrowserOfflineDownload(input)) {
     throw new Error("This source cannot be queued safely in the browser.");
   }
@@ -1036,14 +1114,19 @@ export async function enrichBrowserOfflineDownloadDisplay(downloadId, displaySna
 
 export async function startBrowserOfflineDownload(input = {}) {
   const capabilities = await initializeBrowserOfflineDownloads();
-  if (!capabilities.supported) throw new Error("Offline downloads are unavailable in this browser.");
+  if (!capabilities.supported)
+    throw new Error("Offline downloads are unavailable in this browser.");
   const downloadId = createOfflineDownloadId(input);
   if (!downloadId) throw new Error("This media does not have a stable offline download identity.");
   const existing = await readDownload(downloadId);
   if (existing?.status === "completed") return { status: "already-completed", download: existing };
   if (activeDownloads.has(downloadId)) return activeDownloads.get(downloadId).promise;
 
-  const initialMetadata = buildMetadata(input, downloadId, existing?.fileName || fileNameForDownload(downloadId));
+  const initialMetadata = buildMetadata(
+    input,
+    downloadId,
+    existing?.fileName || fileNameForDownload(downloadId)
+  );
   if (
     existing &&
     (existing.mediaIdentity !== initialMetadata.mediaIdentity ||
@@ -1089,7 +1172,9 @@ export async function startBrowserOfflineDownload(input = {}) {
       metadata = {
         ...metadata,
         filename: text(
-          input.filename || resolved.behaviorHints?.filename || resolved.raw?.behaviorHints?.filename
+          input.filename ||
+            resolved.behaviorHints?.filename ||
+            resolved.raw?.behaviorHints?.filename
         ),
         mimeType: text(resolved.mimeType) || metadata.mimeType,
         status: "downloading"
@@ -1141,7 +1226,12 @@ export async function startBrowserOfflineDownload(input = {}) {
         await writeDownload(metadata);
         fetchResult = await fetchResponse(resolved, 0);
         response = fetchResult.response;
-        resumePlan = getBrowserOfflineResumePlan(response, 0, metadata.totalBytes, fetchResult.rangeHeaderPresent);
+        resumePlan = getBrowserOfflineResumePlan(
+          response,
+          0,
+          metadata.totalBytes,
+          fetchResult.rangeHeaderPresent
+        );
       }
       if (!response?.ok || !resumePlan.valid) {
         throw new Error(`Download request failed (${response?.status || "unavailable"}).`);
@@ -1183,13 +1273,21 @@ export async function startBrowserOfflineDownload(input = {}) {
           transfer.suffixBytesWritten === expectedSuffixBytes &&
           finalFileSize === metadata.totalBytes;
         if (!invariantsMatch) {
-          throw new Error("Offline download skip-prefix invariants did not match the verified source.");
+          throw new Error(
+            "Offline download skip-prefix invariants did not match the verified source."
+          );
         }
       } else if (metadata.totalBytes && finalFileSize !== metadata.totalBytes) {
         throw new Error("Offline download size did not match the verified source total.");
       }
       completed = true;
-      metadata = { ...metadata, status: "completed", completedAt: now(), queueSequence: null, queuedAt: null };
+      metadata = {
+        ...metadata,
+        status: "completed",
+        completedAt: now(),
+        queueSequence: null,
+        queuedAt: null
+      };
       await writeDownload(metadata);
       void captureOfflineArtwork(metadata);
       return { status: "completed", download: metadata };
@@ -1210,7 +1308,9 @@ export async function startBrowserOfflineDownload(input = {}) {
           completedAt: null,
           queueSequence: null,
           queuedAt: null,
-          downloadedBytes: await getOpfsFileSize(metadata.fileName).catch(() => metadata.downloadedBytes || 0),
+          downloadedBytes: await getOpfsFileSize(metadata.fileName).catch(
+            () => metadata.downloadedBytes || 0
+          ),
           error: ""
         };
         await writeDownload(metadata).catch(() => {});
@@ -1227,7 +1327,9 @@ export async function startBrowserOfflineDownload(input = {}) {
         completedAt: null,
         queueSequence: null,
         queuedAt: null,
-        downloadedBytes: await getOpfsFileSize(metadata.fileName).catch(() => metadata.downloadedBytes || 0),
+        downloadedBytes: await getOpfsFileSize(metadata.fileName).catch(
+          () => metadata.downloadedBytes || 0
+        ),
         error: "Download failed"
       };
       await writeDownload(failed).catch(() => {});

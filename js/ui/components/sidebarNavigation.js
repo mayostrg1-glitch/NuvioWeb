@@ -55,7 +55,12 @@ function sidebarItems(layout = {}) {
   if (String(layout?.discoverLocation || "in_search") !== "in_sidebar") {
     return ROOT_SIDEBAR_ITEMS;
   }
-  return [ROOT_SIDEBAR_ITEMS[0], ROOT_SIDEBAR_ITEMS[1], DISCOVER_SIDEBAR_ITEM, ...ROOT_SIDEBAR_ITEMS.slice(2)];
+  return [
+    ROOT_SIDEBAR_ITEMS[0],
+    ROOT_SIDEBAR_ITEMS[1],
+    DISCOVER_SIDEBAR_ITEM,
+    ...ROOT_SIDEBAR_ITEMS.slice(2)
+  ];
 }
 
 let sidebarAvatarCatalogPromise = null;
@@ -286,7 +291,10 @@ export function activateLegacySidebarAction(action, currentRoute = "") {
     return;
   }
 
-  const target = normalizedAction === "gotoDiscover" ? DISCOVER_SIDEBAR_ITEM : getItemForAction(normalizedAction);
+  const target =
+    normalizedAction === "gotoDiscover"
+      ? DISCOVER_SIDEBAR_ITEM
+      : getItemForAction(normalizedAction);
   if (!target) {
     return;
   }
@@ -336,8 +344,9 @@ export function renderLegacySidebar({ selectedRoute = "home", profile = null, la
           : ""
       }
       <div class="home-nav-list">
-        ${items.map(
-          (item, index) => `
+        ${items
+          .map(
+            (item, index) => `
           <button class="home-nav-item focusable${selectedItem.action === item.action ? " selected" : ""}"
                   data-nav-zone="sidebar"
                   data-nav-index="${showProfileSelector ? index + 1 : index}"
@@ -347,7 +356,8 @@ export function renderLegacySidebar({ selectedRoute = "home", profile = null, la
             <span class="home-nav-label">${itemLabel(item)}</span>
           </button>
         `
-        ).join("")}
+          )
+          .join("")}
       </div>
     </aside>
   `;
@@ -410,8 +420,9 @@ export function renderModernSidebar({
             : ""
         }
         <div class="modern-sidebar-nav-list">
-          ${items.map(
-            (item, index) => `
+          ${items
+            .map(
+              (item, index) => `
             <button class="modern-sidebar-nav-item focusable${selectedItem.action === item.action ? " selected" : ""}"
                     data-nav-zone="sidebar"
                     data-nav-index="${(showPill ? 1 : 0) + (showProfileSelector ? 1 : 0) + index}"
@@ -423,7 +434,8 @@ export function renderModernSidebar({
               <span class="modern-sidebar-nav-label">${itemLabel(item)}</span>
             </button>
           `
-          ).join("")}
+            )
+            .join("")}
         </div>
       </aside>
     </div>
@@ -449,8 +461,8 @@ export function renderRootSidebar({
       profile,
       expanded,
       pillIconOnly,
-      blurEnabled: Boolean(layout?.modernSidebarBlur) && isModernSidebarBlurAvailable()
-      ,layout
+      blurEnabled: Boolean(layout?.modernSidebarBlur) && isModernSidebarBlurAvailable(),
+      layout
     });
   }
   return renderLegacySidebar({ selectedRoute, profile, layout });
@@ -731,7 +743,10 @@ export function focusWithoutAutoScroll(node) {
   if (!node || typeof node.focus !== "function") {
     return;
   }
-  if (node.matches?.("article.focusable")) {
+  if (
+    node.matches?.("article.focusable") &&
+    !globalThis.document?.documentElement?.classList?.contains("desktop-browser")
+  ) {
     node.removeAttribute?.("tabindex");
     const active = globalThis.document?.activeElement;
     if (active && active !== globalThis.document?.body && typeof active.blur === "function") {

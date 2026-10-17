@@ -17,10 +17,16 @@ export function createBrowserOfflineSubtitleSnapshot(subtitles = [], createDescr
   const seen = new Set();
   return (subtitles || []).reduce((snapshot, subtitle) => {
     if (!isOfflineSubtitleFormatSupported(subtitle)) return snapshot;
-    const descriptor = createDescriptor?.(subtitle) || { fingerprint: createOfflineSubtitleFingerprint(subtitle) };
+    const descriptor = createDescriptor?.(subtitle) || {
+      fingerprint: createOfflineSubtitleFingerprint(subtitle)
+    };
     if (!descriptor?.fingerprint || seen.has(descriptor.fingerprint)) return snapshot;
     seen.add(descriptor.fingerprint);
-    snapshot.push({ subtitle, descriptor, language: normalizeSubtitleForDisplay(subtitle).language || "Unknown" });
+    snapshot.push({
+      subtitle,
+      descriptor,
+      language: normalizeSubtitleForDisplay(subtitle).language || "Unknown"
+    });
     return snapshot;
   }, []);
 }
@@ -51,7 +57,12 @@ export function createBrowserOfflineSubtitlePicker({
     option.className = `stream-download-subtitle-option${subtitle ? "" : " stream-download-subtitle-mode"}${selected ? " selected" : ""}`;
     option.setAttribute("aria-pressed", String(selected));
     if (!subtitle) {
-      const accessible = { none: "No subtitle", preferred: "Preferred subtitle", all: `All subtitles (${snapshot.length})` }[mode] || label;
+      const accessible =
+        {
+          none: "No subtitle",
+          preferred: "Preferred subtitle",
+          all: `All subtitles (${snapshot.length})`
+        }[mode] || label;
       option.setAttribute("aria-label", accessible);
       option.title = accessible;
     }
@@ -78,7 +89,9 @@ export function createBrowserOfflineSubtitlePicker({
     box.type = "button";
     box.className = `stream-download-subtitle-language-box${language === selectedLanguage ? " selected" : ""}`;
     box.textContent = `${language} ${items.length}`;
-    box.addEventListener("click", () => onSelect({ selectedMode, selectedIndex, selectedLanguage: language }));
+    box.addEventListener("click", () =>
+      onSelect({ selectedMode, selectedIndex, selectedLanguage: language })
+    );
     boxes.appendChild(box);
   });
   languageBar.append(languageTitle, boxes);
@@ -90,13 +103,17 @@ export function createBrowserOfflineSubtitlePicker({
     allLanguage.type = "button";
     allLanguage.className = `stream-download-subtitle-option stream-download-subtitle-mode stream-download-subtitle-language-all${selectedMode === "language" ? " selected" : ""}`;
     allLanguage.textContent = `Download all ${selectedLanguage} (${selectedItems.length})`;
-    allLanguage.addEventListener("click", () => select({ selectedMode: "language", selectedIndex: null }));
+    allLanguage.addEventListener("click", () =>
+      select({ selectedMode: "language", selectedIndex: null })
+    );
     languageAction.appendChild(allLanguage);
   }
 
   const trackList = document.createElement("div");
   trackList.className = "stream-download-subtitle-list download-options-track-list";
-  selectedItems.forEach(({ subtitle, index }) => addOption("specific", index, subtitle, "", trackList));
+  selectedItems.forEach(({ subtitle, index }) =>
+    addOption("specific", index, subtitle, "", trackList)
+  );
   const root = document.createElement("div");
   root.className = "browser-offline-subtitle-picker";
   root.append(controls, languageBar, languageAction, trackList);

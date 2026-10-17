@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import vm from "node:vm";
 
 globalThis.__NUVIO_PLATFORM__ = "browser";
 
@@ -143,7 +144,11 @@ test("browser native-file play rejections use the normal rejection path", async 
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       assert.equal(PlayerController.isPlaying, false);
-      assert.ok(warnings.some(([label, error]) => label === "Playback start rejected" && error === rejection));
+      assert.ok(
+        warnings.some(
+          ([label, error]) => label === "Playback start rejected" && error === rejection
+        )
+      );
     });
   } finally {
     console.warn = originalWarn;
@@ -167,15 +172,24 @@ test("browser engine selection preserves direct, HLS, DASH, and local playback p
     ["native-file"]
   );
   assert.deepEqual(
-    PlayerController.getPlaybackEngineCandidates("https://media.example/stream.m3u8", "application/vnd.apple.mpegurl"),
+    PlayerController.getPlaybackEngineCandidates(
+      "https://media.example/stream.m3u8",
+      "application/vnd.apple.mpegurl"
+    ),
     ["hls.js", "native-hls"]
   );
   assert.deepEqual(
-    PlayerController.getPlaybackEngineCandidates("https://media.example/stream.mpd", "application/dash+xml"),
+    PlayerController.getPlaybackEngineCandidates(
+      "https://media.example/stream.mpd",
+      "application/dash+xml"
+    ),
     ["native-dash", "dash.js"]
   );
   assert.deepEqual(
-    PlayerController.getPlaybackEngineCandidates("blob:https://nuvio.example/offline-copy", "video/mp4"),
+    PlayerController.getPlaybackEngineCandidates(
+      "blob:https://nuvio.example/offline-copy",
+      "video/mp4"
+    ),
     ["native-file"]
   );
 });
@@ -191,7 +205,10 @@ test("native-TV engines are absent from the browser PlayerController", () => {
   assert.equal("canUseAvPlay" in PlayerController, false);
   assert.equal("getPlatformAvplayEngineName" in PlayerController, false);
   assert.equal("shouldPreferTvNativePipeline" in PlayerController, false);
-  assert.equal(candidates.some((candidate) => candidate.includes("avplay")), false);
+  assert.equal(
+    candidates.some((candidate) => candidate.includes("avplay")),
+    false
+  );
 });
 
 test("browser HLS audio tracks are discovered and switched through hls.js", () => {
@@ -301,4 +318,237 @@ test("changing the adaptive playback source clears browser audio tracks", () => 
   assert.equal(PlayerController.getBrowserAudioTracks().length, 1);
   PlayerController.teardownAdaptiveInstances();
   assert.deepEqual(PlayerController.getBrowserAudioTracks(), []);
+});
+
+test("autoplay denial requests a gesture without treating the stream as broken", async () => {
+  const previous = {
+    video: PlayerController.video,
+    emit: PlayerController.emitVideoEvent,
+    gate: PlayerController.startupAudioGateActive
+  };
+  const events = [];
+  let fallbackCalls = 0;
+  try {
+    PlayerController.startupAudioGateActive = false;
+    PlayerController.video = createBrowserPlaybackVideo(() =>
+      Promise.reject(Object.assign(new Error("Autoplay blocked"), { name: "NotAllowedError" }))
+    );
+    PlayerController.emitVideoEvent = (name) => events.push(name);
+    assert.equal(
+      await PlayerController.attemptBrowserVideoPlay({
+        onRejected: () => {
+          fallbackCalls++;
+        }
+      }),
+      false
+    );
+    assert.deepEqual(events, ["playbackgesture"]);
+    assert.equal(fallbackCalls, 0);
+    assert.equal(PlayerController.isPlaying, false);
+  } finally {
+    PlayerController.video = previous.video;
+    PlayerController.emitVideoEvent = previous.emit;
+    PlayerController.startupAudioGateActive = previous.gate;
+  }
+});
+
+test("compatibility playback reports the original timeline and actual selectable audio tracks", () => {
+  const saved = {
+    video: PlayerController.video,
+    compatibility: PlayerController.compatibility,
+    pending: PlayerController.compatibilityPendingPosition
+  };
+  try {
+    PlayerController.video = {
+      currentTime: 8,
+      duration: Infinity,
+      buffered: { length: 1, start: () => 0, end: () => 20 }
+    };
+    PlayerController.compatibility = {
+      offset: 120,
+      duration: 1800,
+      track: 2,
+      tracks: [
+        { index: 1, language: "eng" },
+        { index: 2, language: "fra" }
+      ]
+    };
+    assert.equal(PlayerController.getCurrentTimeSeconds(), 128);
+    assert.equal(PlayerController.getDurationSeconds(), 1800);
+    assert.equal(PlayerController.getBufferedTimeSeconds(), 140);
+    assert.equal(PlayerController.getSelectedBrowserAudioTrackIndex(), 1);
+    assert.equal(PlayerController.getBrowserAudioTracks()[1].codec, "aac");
+    PlayerController.compatibilityPendingPosition = 900;
+    assert.equal(PlayerController.getCurrentTimeSeconds(), 900);
+  } finally {
+    PlayerController.video = saved.video;
+    PlayerController.compatibility = saved.compatibility;
+    PlayerController.compatibilityPendingPosition = saved.pending;
+  }
+});
+
+test("resuming compatibility playback renews segments even when old ranges remain buffered", () => {
+  const player = Object.create(PlayerController);
+  player.video = { paused: true, currentTime: 8, seekable: { length: 1, start: () => 0 } };
+  player.compatibility = { offset: 120 };
+  player.compatibilityPendingPosition = null;
+  player.startupAudioGateActive = false;
+  player.releaseExternalPlaybackOwnership = () => {};
+  player.flushCurrentProgress = () => {};
+  let resumedAt;
+  player.seekCompatibilityPlayback = (position) => {
+    resumedAt = position;
+  };
+  player.attemptBrowserVideoPlay = () => assert.fail("Do not resume an expired segment window");
+  player.resume();
+  assert.equal(resumedAt, 128);
+});
+
+test("compatibility playback stays at the server's real-time conversion rate", async () => {
+  const player = Object.create(PlayerController);
+  player.video = { playbackRate: 2 };
+  player.compatibility = {};
+  assert.deepEqual(player.getSupportedPlaybackRates(), [1]);
+  assert.equal(await player.setPlaybackRate(2), false);
+  assert.equal(await player.setPlaybackRate(1), true);
+  assert.equal(player.video.playbackRate, 1);
+  player.getPlaybackEngineCandidates = () =>
+    assert.fail("Do not retry the unsupported original source");
+  assert.equal(player.getAlternativePlaybackEngine("https://media.example/movie.mkv"), null);
+});
+
+test("compatibility seek stops the old loader before replacing its server playlist", async () => {
+  const calls = [];
+  const session = { id: "test", track: 1 };
+  const result = { id: "test", track: 2, offset: 30 };
+  const player = vm.runInNewContext(
+    `({${PlayerController.seekCompatibilityPlayback.toString()}})`,
+    {
+      requestCompatibilityPlayback: async (path, body) => {
+        assert.deepEqual(calls, ["pause", "stop loader", "waiting"]);
+        assert.equal(path, "/test/seek");
+        assert.equal(body.position, 30);
+        assert.equal(body.track, 2);
+        return result;
+      }
+    }
+  );
+  Object.assign(player, {
+    compatibility: session,
+    video: { pause: () => calls.push("pause") },
+    teardownAdaptiveInstances: () => calls.push("stop loader"),
+    emitVideoEvent: (name) => calls.push(name),
+    loadCompatibilityPlayback: async (value) => assert.equal(value, result)
+  });
+  assert.equal(await player.seekCompatibilityPlayback(30, 2), true);
+  assert.equal(player.compatibilitySeeking, false);
+});
+
+test("leaving the page releases conversion while merely backgrounding it keeps playback", () => {
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  try {
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        visibilityState: "hidden",
+        getElementById: () => ({}),
+        addEventListener() {}
+      }
+    });
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { addEventListener() {} }
+    });
+    const player = Object.create(PlayerController);
+    player.lifecycleBound = false;
+    player.bindVideoElement = (video) => {
+      player.video = video;
+    };
+    player.flushCurrentProgress = () => {};
+    let stopped = 0;
+    player.stopCompatibilityPlayback = () => {
+      stopped++;
+    };
+    player.init();
+    player.visibilityFlushHandler();
+    assert.equal(stopped, 0);
+    const token = player.playRequestToken;
+    player.lifecycleFlushHandler({ type: "pagehide" });
+    assert.equal(stopped, 1);
+    assert.equal(player.playRequestToken, token + 1);
+  } finally {
+    if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+    else delete globalThis.document;
+    if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+    else delete globalThis.window;
+  }
+});
+
+test("hidden native audio is exposed only for the current source", () => {
+  const player = Object.create(PlayerController);
+  player.playRequestToken = 10;
+  player.playbackEngine = "native-file";
+  player.getNativeAudioTracks = () => [];
+  player.audioInspection = {
+    playToken: 10,
+    track: 1,
+    tracks: [
+      { index: 1, language: "spa", codec: "aac" },
+      { index: 3, language: "eng", codec: "aac" }
+    ]
+  };
+  assert.deepEqual(
+    player.getBrowserAudioTracks().map((track) => [track.sourceIndex, track.selected]),
+    [
+      [1, true],
+      [3, false]
+    ]
+  );
+  assert.equal(player.getBrowserAudioTracks()[1].engine, "inspected");
+  player.playRequestToken++;
+  assert.deepEqual(player.getBrowserAudioTracks(), [], "Do not reuse the previous file's tracks");
+  player.playRequestToken--;
+  player.getNativeAudioTracks = () => [{ id: "browser-owned" }];
+  assert.equal(player.getBrowserAudioTracks()[0].id, "browser-owned");
+});
+
+test("screen wake lock releases when paused or hidden, including a pending request", async () => {
+  const player = Object.create(PlayerController);
+  const page = { visibilityState: "visible" };
+  let grant;
+  let releases = 0;
+  const lock = {
+    released: false,
+    release: async () => {
+      releases++;
+    }
+  };
+  const method = vm.runInNewContext(`({${PlayerController.updateScreenWakeLock.toString()}})`, {
+    document: page,
+    navigator: {
+      wakeLock: {
+        request: () =>
+          new Promise((resolve) => {
+            grant = resolve;
+          })
+      }
+    }
+  }).updateScreenWakeLock;
+  player.video = { paused: false };
+  player.updateScreenWakeLock = method;
+  const pending = player.updateScreenWakeLock();
+  page.visibilityState = "hidden";
+  grant(lock);
+  await pending;
+  assert.equal(releases, 1);
+  assert.equal(player.screenWakeLock, null);
+  page.visibilityState = "visible";
+  const visible = player.updateScreenWakeLock();
+  grant(lock);
+  await visible;
+  assert.equal(player.screenWakeLock, lock);
+  player.video.paused = true;
+  await player.updateScreenWakeLock();
+  assert.equal(releases, 2);
 });

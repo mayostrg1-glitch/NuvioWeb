@@ -2,10 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PlayerSettingsStore, normalizePlayerSettings } from "./playerSettingsStore.js";
 
+test("external playback requires a saved player choice", () => {
+  assert.equal(PlayerSettingsStore.getDefaults().browserExternalPlayer, "lenna");
+  assert.equal(normalizePlayerSettings({}).browserExternalPlayer, "lenna");
+  for (const player of ["disabled", "lenna", "outplayer", "infuse", "vlc"]) {
+    assert.equal(
+      normalizePlayerSettings({ browserExternalPlayer: player }).browserExternalPlayer,
+      player
+    );
+  }
+});
+
 test("external player progress defaults to automatic and preserves the manual privacy choice", () => {
   assert.equal(PlayerSettingsStore.getDefaults().externalPlayerProgress, "automatic");
-  assert.equal(normalizePlayerSettings({ externalPlayerProgress: "manual" }).externalPlayerProgress, "manual");
-  assert.equal(normalizePlayerSettings({ externalPlayerProgress: "unexpected" }).externalPlayerProgress, "automatic");
+  assert.equal(
+    normalizePlayerSettings({ externalPlayerProgress: "manual" }).externalPlayerProgress,
+    "manual"
+  );
+  assert.equal(
+    normalizePlayerSettings({ externalPlayerProgress: "unexpected" }).externalPlayerProgress,
+    "automatic"
+  );
 });
 
 test("Outplayer remains a persisted external-player preference independent of progress mode", () => {

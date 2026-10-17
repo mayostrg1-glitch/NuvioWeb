@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { continueWatchingEnrichmentSignatureFor } = await import(
-  "./continueWatchingEnrichmentSignature.js"
-);
+const { continueWatchingEnrichmentSignatureFor } =
+  await import("./continueWatchingEnrichmentSignature.js");
 
 const ON = {
   enabled: true,
@@ -27,7 +26,10 @@ test("enrichment that cannot run shares one signature, whatever the reason", () 
 });
 
 test("turning enrichment on changes the signature, so cached entries are re-enriched", () => {
-  const before = continueWatchingEnrichmentSignatureFor({ ...ON, enrichContinueWatching: false }, true);
+  const before = continueWatchingEnrichmentSignatureFor(
+    { ...ON, enrichContinueWatching: false },
+    true
+  );
   const after = continueWatchingEnrichmentSignatureFor(ON, true);
   assert.notEqual(before, after);
 });

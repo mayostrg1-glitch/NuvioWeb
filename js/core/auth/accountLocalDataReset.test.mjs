@@ -26,14 +26,14 @@ function storage(entries = {}) {
 test("account reset removes profile-colliding progress, collections, addons, and credentials", () => {
   const local = storage({
     watchProgressItems: "[]",
-    collectionsState: JSON.stringify({ __profileScoped: true, version: 1, profiles: { "1": {} } }),
-    debridSettings: JSON.stringify({ __profileScoped: true, version: 1, profiles: { "1": {} } }),
-    installedAddonUrls: JSON.stringify({ __profileScoped: true, version: 1, profiles: { "1": [] } }),
-    traktAuthState: JSON.stringify({ profiles: { "1": {} } }),
-    simklAuthState: JSON.stringify({ profiles: { "1": {} } }),
+    collectionsState: JSON.stringify({ __profileScoped: true, version: 1, profiles: { 1: {} } }),
+    debridSettings: JSON.stringify({ __profileScoped: true, version: 1, profiles: { 1: {} } }),
+    installedAddonUrls: JSON.stringify({ __profileScoped: true, version: 1, profiles: { 1: [] } }),
+    traktAuthState: JSON.stringify({ profiles: { 1: {} } }),
+    simklAuthState: JSON.stringify({ profiles: { 1: {} } }),
     nuvioAccountOwnerMarker: "owner-marker",
     nuvio_web_installation_id: "device-identity",
-    torrentSettings: JSON.stringify({ __profileScoped: true, version: 1, profiles: { "1": {} } })
+    torrentSettings: JSON.stringify({ __profileScoped: true, version: 1, profiles: { 1: {} } })
   });
 
   clearAccountLocalData(local, storage({ homeReturnFocusState: "old" }));
@@ -55,9 +55,9 @@ test("sign-out leaves nothing that belonged to the account", () => {
     torrentSettings: JSON.stringify({
       __profileScoped: true,
       version: 1,
-      profiles: { "1": { p2pEnabled: true, enableUpload: true }, "4": { p2pEnabled: false } }
+      profiles: { 1: { p2pEnabled: true, enableUpload: true }, 4: { p2pEnabled: false } }
     }),
-    profileLockStates: JSON.stringify({ "1": false, "4": true }),
+    profileLockStates: JSON.stringify({ 1: false, 4: true }),
     nuvio_web_installation_id: "device-identity"
   });
 

@@ -58,7 +58,8 @@ function createIndicator(documentRef) {
   indicator.className = "browser-pull-to-refresh";
   indicator.setAttribute("aria-live", "polite");
   indicator.setAttribute("aria-atomic", "true");
-  indicator.innerHTML = '<span class="browser-pull-to-refresh-icon" aria-hidden="true">↓</span><span class="browser-pull-to-refresh-label">Pull to refresh</span>';
+  indicator.innerHTML =
+    '<span class="browser-pull-to-refresh-icon" aria-hidden="true">↓</span><span class="browser-pull-to-refresh-label">Pull to refresh</span>';
   documentRef.body.append(indicator);
   return indicator;
 }
@@ -103,7 +104,13 @@ export function bindBrowserPullToRefresh({
       const icon = indicator.querySelector(".browser-pull-to-refresh-icon");
       const label = indicator.querySelector(".browser-pull-to-refresh-label");
       if (icon) icon.textContent = next.state === "refreshing" ? "↻" : ready ? "↑" : "↓";
-      if (label) label.textContent = next.state === "refreshing" ? "Refreshing…" : ready ? "Release to refresh" : "Pull to refresh";
+      if (label)
+        label.textContent =
+          next.state === "refreshing"
+            ? "Refreshing…"
+            : ready
+              ? "Release to refresh"
+              : "Pull to refresh";
     });
   };
 
@@ -115,13 +122,24 @@ export function bindBrowserPullToRefresh({
   const cancel = () => reset();
 
   const start = (event) => {
-    if (refreshing || event.touches?.length !== 1 || hasOpenOverlay(documentRef) || isInteractiveStart(event.target)) {
+    if (
+      refreshing ||
+      event.touches?.length !== 1 ||
+      hasOpenOverlay(documentRef) ||
+      isInteractiveStart(event.target)
+    ) {
       return;
     }
     const owner = resolveScrollOwner?.() || BrowserPullToRefresh.getScrollOwner(documentRef);
     if (!owner || Number(owner.scrollTop || 0) > 0) return;
     const touch = event.touches[0];
-    gesture = { owner, startX: touch.clientX, startY: touch.clientY, intent: "pending", rawDistance: 0 };
+    gesture = {
+      owner,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      intent: "pending",
+      rawDistance: 0
+    };
   };
 
   const move = (event) => {
@@ -146,7 +164,9 @@ export function bindBrowserPullToRefresh({
   };
 
   const end = async () => {
-    const shouldRefresh = Boolean(gesture?.intent === "pull" && BrowserPullToRefresh.isReady(gesture.rawDistance));
+    const shouldRefresh = Boolean(
+      gesture?.intent === "pull" && BrowserPullToRefresh.isReady(gesture.rawDistance)
+    );
     gesture = null;
     if (!shouldRefresh || refreshing) {
       render();

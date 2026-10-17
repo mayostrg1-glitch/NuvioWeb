@@ -15,11 +15,26 @@ async function loadStreamScreen() {
         name: "stream-screen-browser-mocks",
         setup(buildApi) {
           const mockPaths = new Map([
-            ["router", `export const Router = { getCurrent: () => "stream", navigate: async () => {}, back: () => {} };`],
-            ["player-settings", `export const PlayerSettingsStore = { get: () => globalThis.__NUVIO_TEST_PLAYER_SETTINGS__ || ({ streamReuseLastLinkEnabled: false, streamReuseLastLinkCacheHours: 24, streamAutoPlayTimeoutSeconds: 0 }) };`],
-            ["stream-preferences", `export const StreamPreferencesStore = { getValid: () => null };`],
-            ["addon-repository", `export const addonRepository = { getCachedInstalledAddons: () => [] };`],
-            ["badge-settings", `export const StreamBadgeSettingsStore = { snapshot: () => ({ showAddonLogo: false }) };`]
+            [
+              "router",
+              `export const Router = { getCurrent: () => "stream", navigate: async () => {}, back: () => {} };`
+            ],
+            [
+              "player-settings",
+              `export const PlayerSettingsStore = { get: () => globalThis.__NUVIO_TEST_PLAYER_SETTINGS__ || ({ streamReuseLastLinkEnabled: false, streamReuseLastLinkCacheHours: 24, streamAutoPlayTimeoutSeconds: 0 }) };`
+            ],
+            [
+              "stream-preferences",
+              `export const StreamPreferencesStore = { getValid: () => null };`
+            ],
+            [
+              "addon-repository",
+              `export const addonRepository = { getCachedInstalledAddons: () => [] };`
+            ],
+            [
+              "badge-settings",
+              `export const StreamBadgeSettingsStore = { snapshot: () => ({ showAddonLogo: false }) };`
+            ]
           ]);
           for (const [filter, path] of [
             [/router\.js$/, "router"],
@@ -37,7 +52,9 @@ async function loadStreamScreen() {
       }
     ]
   });
-  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`);
+  return import(
+    `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`
+  );
 }
 
 test("StreamScreen mounts its browser route before loading sources", async () => {

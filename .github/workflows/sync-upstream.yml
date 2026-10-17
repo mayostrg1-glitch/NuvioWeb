@@ -1,0 +1,42 @@
+name: Review upstream updates
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  review:
+    if: github.repository == 'falcononrails/NuvioWeb'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: nightly
+          fetch-depth: 0
+      - name: List changes since the last reviewed upstream commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          reviewed=$(cat .github/upstream-reviewed.txt)
+          [[ "$reviewed" =~ ^[0-9a-f]{40}$ ]]
+          git fetch https://github.com/alphasquare404/NuvioWeb.git web
+          latest=$(git rev-parse FETCH_HEAD)
+          git merge-base --is-ancestor "$reviewed" "$latest"
+          if [[ "$reviewed" == "$latest" ]]; then
+            echo 'No upstream changes since the last review.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo 'Upstream has changes to review. This job never merges or deploys them.' >> "$GITHUB_STEP_SUMMARY"
+          echo "[Compare reviewed changes](https://github.com/alphasquare404/NuvioWeb/compare/$reviewed...$latest)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          git log --reverse --no-merges --format='%h %s' "$reviewed..$latest" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo 'See docs/upstream-sync.md for the integration policy.' >> "$GITHUB_STEP_SUMMARY"

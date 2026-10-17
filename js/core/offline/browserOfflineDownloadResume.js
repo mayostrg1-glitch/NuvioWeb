@@ -50,7 +50,12 @@ function getRangeValidation(response, offset, expectedTotalBytes = null) {
   return { valid: false, reason: "missing-or-invalid-content-range" };
 }
 
-export function getBrowserOfflineResumePlan(response, offset, expectedTotalBytes = null, rangeHeaderPresent = false) {
+export function getBrowserOfflineResumePlan(
+  response,
+  offset,
+  expectedTotalBytes = null,
+  rangeHeaderPresent = false
+) {
   const retainedOffset = Math.max(0, Number(offset) || 0);
   const rangeValidation = getRangeValidation(response, retainedOffset, expectedTotalBytes);
   if (rangeValidation.valid) {

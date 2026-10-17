@@ -22,7 +22,6 @@ function imageUrl(path, baseUrl) {
   return value.startsWith("/") ? `${baseUrl}${value}` : value;
 }
 
-
 export const TmdbPersonService = {
   isAvailable() {
     const settings = TmdbSettingsStore.get();

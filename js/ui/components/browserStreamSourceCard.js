@@ -5,8 +5,12 @@ import {
   normalizeAddonLogoUrl,
   resolveAddonLogo
 } from "../../core/media/addonLogoCache.js";
-import { matchStreamBadges, normalizeStreamBadgeChipColor } from "../../core/streams/streamBadgeRules.js";
+import {
+  matchStreamBadges,
+  normalizeStreamBadgeChipColor
+} from "../../core/streams/streamBadgeRules.js";
 import { I18n } from "../../i18n/index.js";
+import { browserSourceWarnings } from "../../core/player/browserMediaSupport.js";
 
 const STREAM_BADGE_LIMIT = 9;
 
@@ -72,7 +76,15 @@ function normalizeStreamInput(stream = {}) {
     addonLogo: stream.addonLogo ?? raw.addonLogo ?? "",
     behaviorHints: stream.behaviorHints || raw.behaviorHints || {},
     sourceType:
-      stream.sourceType || stream.mimeType || stream.type || stream.source || raw.sourceType || raw.mimeType || raw.type || raw.source || ""
+      stream.sourceType ||
+      stream.mimeType ||
+      stream.type ||
+      stream.source ||
+      raw.sourceType ||
+      raw.mimeType ||
+      raw.type ||
+      raw.source ||
+      ""
   };
 }
 
@@ -100,7 +112,13 @@ function getSourceQuality(stream = {}) {
   );
   if (qualityCandidate) return detectQuality(qualityCandidate);
   return detectQuality(
-    [stream.name, stream.title, stream.description, stream.behaviorHints?.filename, stream.sourceType].join(" ")
+    [
+      stream.name,
+      stream.title,
+      stream.description,
+      stream.behaviorHints?.filename,
+      stream.sourceType
+    ].join(" ")
   );
 }
 
@@ -116,7 +134,9 @@ function getSourceDescriptionLines(stream = {}) {
 }
 
 function resolveBadgePlacement(settings = {}) {
-  return String(settings?.badgePlacement || "BOTTOM").trim().toUpperCase() === "TOP"
+  return String(settings?.badgePlacement || "BOTTOM")
+    .trim()
+    .toUpperCase() === "TOP"
     ? "TOP"
     : "BOTTOM";
 }
@@ -127,7 +147,10 @@ function renderBadgeImage(badge = {}) {
   const backgroundColor = normalizeStreamBadgeChipColor(badge.tagColor);
   const outlineColor = normalizeStreamBadgeChipColor(badge.borderColor);
   const textColor = normalizeStreamBadgeChipColor(badge.textColor);
-  const filled = String(badge.tagStyle || "").trim().toLowerCase() === "filled";
+  const filled =
+    String(badge.tagStyle || "")
+      .trim()
+      .toLowerCase() === "filled";
   const style = [
     filled && backgroundColor ? `background:${backgroundColor};` : "",
     outlineColor ? `border-color:${outlineColor};` : "",
@@ -144,7 +167,7 @@ function renderBadges(stream, settings, enabled) {
     .filter(Boolean);
   if (settings?.showFileSizeBadges !== false && stream.behaviorHints?.videoSize != null) {
     const size = formatBytes(stream.behaviorHints.videoSize);
-    if (size) chips.push(`<span class="stream-route-stream-badge size">${escapeHtml(t("streams_size", [size], `SIZE ${size}`))}</span>`);
+    if (size) chips.push(`<span class="stream-route-stream-badge size">${escapeHtml(size)}</span>`);
   }
   return chips.length
     ? `<div class="stream-route-card-badges" aria-label="${escapeHtml(t("settings_stream_badges_section", {}, "Fusion Style"))}">${chips.join("")}</div>`
@@ -158,7 +181,11 @@ function renderBadges(stream, settings, enabled) {
  */
 export function normalizeSourceForDisplay(
   stream = {},
-  { badgeSettings = StreamBadgeSettingsStore.snapshot(), streamBadgesEnabled = DebridSettingsStore.get().streamBadgesEnabled !== false, addonLogoLookup = {} } = {}
+  {
+    badgeSettings = StreamBadgeSettingsStore.snapshot(),
+    streamBadgesEnabled = DebridSettingsStore.get().streamBadgesEnabled !== false,
+    addonLogoLookup = {}
+  } = {}
 ) {
   const source = normalizeStreamInput(stream);
   const headline = getSourceHeadline(source);
@@ -172,6 +199,7 @@ export function normalizeSourceForDisplay(
   const filename = String(source.behaviorHints?.filename || "").trim();
   return {
     source,
+    compatibilityWarnings: browserSourceWarnings(source),
     headline,
     quality,
     badges,
@@ -187,10 +215,21 @@ export function normalizeSourceForDisplay(
 }
 
 /** Renders the shared card body; callers own the outer card action. */
+export function renderBrowserSourceWarnings(warnings = []) {
+  return warnings
+    .filter((warning) => !warning.startsWith("Audio"))
+    .map(
+      (warning) =>
+        `<span class="stream-route-compatibility" title="${escapeHtml(warning)}" aria-label="${escapeHtml(warning)}">Video may not work</span>`
+    )
+    .join("");
+}
+
 export function renderBrowserSourceCardContent(model = {}) {
   const badges = model.badges || "";
+  const compatibility = renderBrowserSourceWarnings(model.compatibilityWarnings);
   const addonIdentity = model.showAddonLogo
     ? `<div class="stream-route-card-side"><div class="stream-route-addon-badge">${model.addonLogoUrl ? `<img src="${escapeHtml(model.addonLogoUrl)}" alt="${escapeHtml(model.addonName || "Addon")}" decoding="async" loading="lazy" referrerpolicy="no-referrer" /><span hidden>${escapeHtml(model.addonBadgeLabel || "A")}</span>` : `<span>${escapeHtml(model.addonBadgeLabel || "A")}</span>`}</div><div class="stream-route-addon-name" title="${escapeHtml(model.addonName || "Addon")}">${escapeHtml(model.addonName || "Addon")}</div></div>`
     : "";
-  return `<div class="stream-route-card-copy"><div class="stream-route-card-heading">${escapeHtml(model.headline || "Unknown source")}</div>${model.topBadges || ""}${!badges ? `<div class="stream-route-card-quality">${escapeHtml(model.quality || "Auto")}</div>` : ""}${(model.descriptionLines || []).map((line, index) => `<div class="stream-route-card-line${index > 0 ? " secondary" : ""}" title="${escapeHtml(line)}">${escapeHtml(line)}</div>`).join("")}${model.bottomBadges || ""}</div>${addonIdentity}`;
+  return `<div class="stream-route-card-copy"><div class="stream-route-card-heading">${escapeHtml(model.headline || "Unknown source")}</div>${model.topBadges || ""}${!badges ? `<div class="stream-route-card-quality">${escapeHtml(model.quality || "Auto")}</div>` : ""}${(model.descriptionLines || []).map((line, index) => `<div class="stream-route-card-line${index > 0 ? " secondary" : ""}" title="${escapeHtml(line)}">${escapeHtml(line)}</div>`).join("")}${model.bottomBadges || ""}${compatibility}</div>${addonIdentity}`;
 }

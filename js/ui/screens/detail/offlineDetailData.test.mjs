@@ -8,27 +8,64 @@ import {
 } from "./offlineDetailData.js";
 
 const episodes = [
-  { downloadId: "s1e11", status: "completed", contentType: "episode", seriesId: "series-1", seasonNumber: 1, episodeNumber: 11, episodeId: "remote-11", title: "Eleven", fileName: "eleven.mp4" },
-  { downloadId: "s2e3", status: "completed", contentType: "episode", seriesId: "series-1", seasonNumber: 2, episodeNumber: 3, episodeId: "remote-203", title: "Three", fileName: "three.mp4" }
+  {
+    downloadId: "s1e11",
+    status: "completed",
+    contentType: "episode",
+    seriesId: "series-1",
+    seasonNumber: 1,
+    episodeNumber: 11,
+    episodeId: "remote-11",
+    title: "Eleven",
+    fileName: "eleven.mp4"
+  },
+  {
+    downloadId: "s2e3",
+    status: "completed",
+    contentType: "episode",
+    seriesId: "series-1",
+    seasonNumber: 2,
+    episodeNumber: 3,
+    episodeId: "remote-203",
+    title: "Three",
+    fileName: "three.mp4"
+  }
 ];
 
 test("offline Series Detail retains locally downloaded episodes after remote failure", () => {
-  const local = createOfflineEpisodeEntries(selectCompletedOfflineDetailDownloads(episodes, { itemType: "series", itemIds: ["series-1"] }));
-  assert.deepEqual(local.map((episode) => [episode.season, episode.episode]), [[1, 11], [2, 3]]);
+  const local = createOfflineEpisodeEntries(
+    selectCompletedOfflineDetailDownloads(episodes, { itemType: "series", itemIds: ["series-1"] })
+  );
+  assert.deepEqual(
+    local.map((episode) => [episode.season, episode.episode]),
+    [
+      [1, 11],
+      [2, 3]
+    ]
+  );
   assert.equal(mergeDetailEpisodesWithOfflineDownloads([], local).length, 2);
 });
 
 test("remote episodes retain their metadata while completed local downloads overlay playback", () => {
   const local = createOfflineEpisodeEntries(episodes);
-  const merged = mergeDetailEpisodesWithOfflineDownloads([{ id: "remote-11", season: 1, episode: 11, title: "Remote title", overview: "Rich metadata" }], local);
+  const merged = mergeDetailEpisodesWithOfflineDownloads(
+    [{ id: "remote-11", season: 1, episode: 11, title: "Remote title", overview: "Rich metadata" }],
+    local
+  );
   assert.equal(merged[0].title, "Remote title");
   assert.equal(merged[0].offlineDownloadId, "s1e11");
-  assert.deepEqual(merged.map((episode) => `${episode.season}:${episode.episode}`), ["1:11", "2:3"]);
+  assert.deepEqual(
+    merged.map((episode) => `${episode.season}:${episode.episode}`),
+    ["1:11", "2:3"]
+  );
 });
 
 test("only completed metadata with a local file name is eligible for offline playback", () => {
   assert.equal(hasPlayableOfflineDownload({ ...episodes[0] }), true);
-  assert.equal(hasPlayableOfflineDownload({ ...episodes[0], fileName: "", status: "completed" }), false);
+  assert.equal(
+    hasPlayableOfflineDownload({ ...episodes[0], fileName: "", status: "completed" }),
+    false
+  );
   assert.equal(hasPlayableOfflineDownload({ ...episodes[0], status: "failed" }), false);
 });
 
@@ -62,10 +99,18 @@ test("offline, a series shows only the episodes that are on the device", () => {
   const offline = [{ season: 1, episode: 2, offlineDownloadId: "d2", title: "Two" }];
 
   const online = mergeDetailEpisodesWithOfflineDownloads(remote, offline);
-  assert.deepEqual(online.map((episode) => episode.episode), [1, 2, 3]);
+  assert.deepEqual(
+    online.map((episode) => episode.episode),
+    [1, 2, 3]
+  );
 
-  const offlineOnly = mergeDetailEpisodesWithOfflineDownloads(remote, offline, { offlineOnly: true });
-  assert.deepEqual(offlineOnly.map((episode) => episode.episode), [2]);
+  const offlineOnly = mergeDetailEpisodesWithOfflineDownloads(remote, offline, {
+    offlineOnly: true
+  });
+  assert.deepEqual(
+    offlineOnly.map((episode) => episode.episode),
+    [2]
+  );
   assert.equal(offlineOnly[0].offlineDownloadId, "d2");
   // The remote title survives the filter; it is the list that shrinks, not the
   // metadata of what is left.

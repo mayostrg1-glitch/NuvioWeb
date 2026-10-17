@@ -8,8 +8,12 @@ function keyEvent(target, key = "Backspace") {
     target,
     prevented: false,
     stopped: false,
-    preventDefault() { this.prevented = true; },
-    stopPropagation() { this.stopped = true; }
+    preventDefault() {
+      this.prevented = true;
+    },
+    stopPropagation() {
+      this.stopped = true;
+    }
   };
 }
 
@@ -18,9 +22,13 @@ test("dialog preserves Backspace for an opted-in editable field", () => {
   const dialog = {
     _destroyed: false,
     _eventKey: () => ({ isBack: true }),
-    _dismiss: () => { dismissed = true; }
+    _dismiss: () => {
+      dismissed = true;
+    }
   };
-  const event = keyEvent({ closest: (selector) => selector === "[data-nuvio-dialog-preserve-deletion]" ? {} : null });
+  const event = keyEvent({
+    closest: (selector) => (selector === "[data-nuvio-dialog-preserve-deletion]" ? {} : null)
+  });
 
   NuvioDialog.prototype._onKey.call(dialog, event);
 
@@ -34,7 +42,9 @@ test("dialog retains its Backspace dismiss behavior outside opted-in fields", ()
   const dialog = {
     _destroyed: false,
     _eventKey: () => ({ isBack: true }),
-    _dismiss: () => { dismissed = true; }
+    _dismiss: () => {
+      dismissed = true;
+    }
   };
   const event = keyEvent({ closest: () => null });
 

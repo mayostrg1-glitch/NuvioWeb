@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-
 const { ensureSpatialFocusVisible, ScreenUtils } = await import("./screen.js");
 const { focusWithoutAutoScroll } = await import("../components/sidebarNavigation.js");
 
@@ -33,7 +32,10 @@ function makeCard({ left, top, focused = false } = {}) {
 function makeContainer(cards) {
   return {
     querySelectorAll: () => cards,
-    querySelector: (selector) => (selector.endsWith(".focused") ? cards.find((card) => card.classList.contains("focused")) : null)
+    querySelector: (selector) =>
+      selector.endsWith(".focused")
+        ? cards.find((card) => card.classList.contains("focused"))
+        : null
   };
 }
 
@@ -130,11 +132,17 @@ test("moving to a spatial card releases an active editable control without focus
   const originalDocument = globalThis.document;
   let blurred = 0;
   let focused = 0;
-  const input = { blur: () => { blurred += 1; } };
+  const input = {
+    blur: () => {
+      blurred += 1;
+    }
+  };
   const card = {
     matches: (selector) => selector === "article.focusable",
     removeAttribute: () => {},
-    focus: () => { focused += 1; }
+    focus: () => {
+      focused += 1;
+    }
   };
   globalThis.document = { activeElement: input, body: {} };
   try {
@@ -146,5 +154,4 @@ test("moving to a spatial card releases an active editable control without focus
   }
 });
 
-test.after(() => {
-});
+test.after(() => {});

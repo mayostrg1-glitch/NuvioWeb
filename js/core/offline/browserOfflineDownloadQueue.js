@@ -73,8 +73,10 @@ function descriptorMatchesResolvedSubtitle(descriptor = {}, subtitle = {}) {
 
 async function downloadSelectedSubtitleAfterVideo(download) {
   const subtitleSelection = getOfflineSubtitleSelection({
-    offlineSubtitleMode: download?.offlineSubtitleMode || download?.queueRequest?.offlineSubtitleMode,
-    offlineSubtitleLanguage: download?.offlineSubtitleLanguage || download?.queueRequest?.offlineSubtitleLanguage,
+    offlineSubtitleMode:
+      download?.offlineSubtitleMode || download?.queueRequest?.offlineSubtitleMode,
+    offlineSubtitleLanguage:
+      download?.offlineSubtitleLanguage || download?.queueRequest?.offlineSubtitleLanguage,
     offlineSubtitleDescriptors:
       download?.offlineSubtitleDescriptors || download?.queueRequest?.offlineSubtitleDescriptors,
     offlineSubtitle: download?.offlineSubtitle || download?.queueRequest?.offlineSubtitle
@@ -87,7 +89,10 @@ async function downloadSelectedSubtitleAfterVideo(download) {
         descriptors.map(async (descriptor) => ({
           descriptor,
           existing: await getOfflineSubtitle(
-            createOfflineSubtitleId({ mediaIdentity: download.mediaIdentity, fingerprint: descriptor.fingerprint })
+            createOfflineSubtitleId({
+              mediaIdentity: download.mediaIdentity,
+              fingerprint: descriptor.fingerprint
+            })
           )
         }))
       )
@@ -102,20 +107,32 @@ async function downloadSelectedSubtitleAfterVideo(download) {
       });
       return;
     }
-    await updateBrowserOfflineDownload(download.downloadId, { offlineSubtitleStatus: "processing" });
-    const request = download.queueRequest || {};
-    const type = String(request.itemType || request.contentType || "movie").toLowerCase() === "tv" ? "series" : String(request.itemType || request.contentType || "movie").toLowerCase();
-    const subtitles = await subtitleRepository.getSubtitles(type, request.imdbId || request.itemId || request.mediaId, request.videoId || null, {
-      season: request.season,
-      episode: request.episode,
-      title: request.title,
-      year: request.year
+    await updateBrowserOfflineDownload(download.downloadId, {
+      offlineSubtitleStatus: "processing"
     });
+    const request = download.queueRequest || {};
+    const type =
+      String(request.itemType || request.contentType || "movie").toLowerCase() === "tv"
+        ? "series"
+        : String(request.itemType || request.contentType || "movie").toLowerCase();
+    const subtitles = await subtitleRepository.getSubtitles(
+      type,
+      request.imdbId || request.itemId || request.mediaId,
+      request.videoId || null,
+      {
+        season: request.season,
+        episode: request.episode,
+        title: request.title,
+        year: request.year
+      }
+    );
     const outcomes = await allSettledInBatches(
       pendingDescriptors,
       MAX_CONCURRENT_OFFLINE_SUBTITLE_DOWNLOADS,
       async (descriptor) => {
-        const subtitle = subtitles.find((candidate) => descriptorMatchesResolvedSubtitle(descriptor, candidate));
+        const subtitle = subtitles.find((candidate) =>
+          descriptorMatchesResolvedSubtitle(descriptor, candidate)
+        );
         if (!subtitle) throw new Error("Selected subtitle is no longer available");
         return downloadBrowserOfflineSubtitle({
           mediaIdentity: download.mediaIdentity,
@@ -129,7 +146,9 @@ async function downloadSelectedSubtitleAfterVideo(download) {
     const rejected = outcomes.filter((outcome) => outcome.status === "rejected");
     await updateBrowserOfflineDownload(download.downloadId, {
       offlineSubtitleStatus: rejected.length ? "partial" : "completed",
-      offlineSubtitleError: rejected.length ? String(rejected[0]?.reason?.message || "Some subtitles failed") : "",
+      offlineSubtitleError: rejected.length
+        ? String(rejected[0]?.reason?.message || "Some subtitles failed")
+        : "",
       offlineSubtitleAttemptedCount: pendingDescriptors.length,
       offlineSubtitleCompletedCount: descriptors.length - pendingDescriptors.length + completed,
       offlineSubtitleFailedCount: rejected.length
@@ -150,8 +169,10 @@ function isOnline() {
 async function nextQueueSequence() {
   const downloads = await listOfflineDownloads();
   return (
-    downloads.reduce((highest, download) => Math.max(highest, Number(download.queueSequence || 0) || 0), 0) +
-    1
+    downloads.reduce(
+      (highest, download) => Math.max(highest, Number(download.queueSequence || 0) || 0),
+      0
+    ) + 1
   );
 }
 
@@ -227,7 +248,9 @@ export async function initializeBrowserOfflineDownloadQueue() {
         getOfflineSubtitleSelection(download).descriptors.length &&
         isOfflineSubtitleStepUnfinished(download?.offlineSubtitleStatus)
     );
-    void Promise.all(pendingSubtitleDownloads.map((download) => downloadSelectedSubtitleAfterVideo(download)));
+    void Promise.all(
+      pendingSubtitleDownloads.map((download) => downloadSelectedSubtitleAfterVideo(download))
+    );
     void scheduleBrowserOfflineDownloads();
     return capabilities;
   })().finally(() => {
@@ -254,7 +277,8 @@ export async function enqueueBrowserOfflineDownload(input = {}) {
 export async function resumeQueuedBrowserOfflineDownload(downloadId, input = null) {
   await initializeBrowserOfflineDownloadQueue();
   const download = await getOfflineDownload(downloadId);
-  if (!download || !["paused", "interrupted", "failed"].includes(String(download.status || ""))) return null;
+  if (!download || !["paused", "interrupted", "failed"].includes(String(download.status || "")))
+    return null;
   if (input?.stream) runtimeQueuedRequests.set(downloadId, input);
   const queued = await updateBrowserOfflineDownload(downloadId, {
     status: "queued",

@@ -67,11 +67,7 @@ export async function copyTextToClipboard(
 
 export const copyDeviceAuthorizationCode = copyTextToClipboard;
 
-export function openDeviceAuthorizationLink(
-  providerId,
-  verificationUrl,
-  { open } = {}
-) {
+export function openDeviceAuthorizationLink(providerId, verificationUrl, { open } = {}) {
   const url = trustedVerificationUrl(providerId, verificationUrl);
   const windowRef = globalThis.window;
   const openLink = open || windowRef?.open?.bind(windowRef);

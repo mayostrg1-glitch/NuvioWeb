@@ -294,7 +294,9 @@ export const SupportersContributorsScreen = {
       tabState.items = [];
       tabState.loaded = tab === "supporters" || tab === "contributors";
       tabState.error =
-        tab === "supporters" || tab === "contributors" ? null : error?.message || String(error || "");
+        tab === "supporters" || tab === "contributors"
+          ? null
+          : error?.message || String(error || "");
       tabState.fallback = tab === "contributors";
       if (tab === "supporters") {
         this.state.donationProgress = null;
@@ -438,7 +440,10 @@ export const SupportersContributorsScreen = {
         </div>
       `;
     }
-    if (this.selectedTab === "contributors" && (tabState.fallback || (tabState.loaded && !tabState.items.length))) {
+    if (
+      this.selectedTab === "contributors" &&
+      (tabState.fallback || (tabState.loaded && !tabState.items.length))
+    ) {
       return `
         <div class="supporters-status">
           <p>People who have contributed to this NuvioWeb community fork.</p>

@@ -33,6 +33,11 @@ import { metaRepository } from "../../../data/repository/metaRepository.js";
 import { I18n } from "../../../i18n/index.js";
 import { Environment } from "../../../platform/environment.js";
 import { Router } from "../../navigation/router.js";
+import {
+  browserSourceWarnings,
+  unavailableAudioMessage
+} from "../../../core/player/browserMediaSupport.js";
+import { renderBrowserSourceWarnings } from "../../components/browserStreamSourceCard.js";
 import { setBrowserMediaTitle } from "../../navigation/browserDocumentTitle.js";
 import { renderLoadingIndicator } from "../../components/loadingIndicator.js";
 import {
@@ -77,7 +82,10 @@ import {
   isOfflineSubtitleTextLoadable,
   listOfflineSubtitles
 } from "../../../core/offline/browserOfflineDownloads.js";
-import { DirectDebridResolver } from "../../../core/debrid/directDebridResolver.js";
+import {
+  DirectDebridResolver,
+  debridResolveErrorMessage
+} from "../../../core/debrid/directDebridResolver.js";
 import { TrackingScrobbleService } from "../../../data/repository/trackingScrobbleService.js";
 import { StreamPreferencesStore } from "../../../data/local/streamPreferencesStore.js";
 
@@ -1457,9 +1465,7 @@ function renderPlayerSourceBadges(
   if (badgeSettings.showFileSizeBadges !== false && sizeBytes != null) {
     const label = formatBytes(sizeBytes);
     if (label) {
-      chips.push(
-        `<span class="stream-route-stream-badge size">${escapeHtml(t("streams_size", [label], `SIZE ${label}`))}</span>`
-      );
+      chips.push(`<span class="stream-route-stream-badge size">${escapeHtml(label)}</span>`);
     }
   }
   matchedBadges.slice(0, 8).forEach((badge) => {
@@ -2158,8 +2164,10 @@ export const PlayerScreen = {
 
     this.audioDialogVisible = false;
     this.audioDialogIndex = 0;
-    this.audioMixFocusIndex = 0;
-    this.audioFocusedColumn = "tracks";
+    this.compatibilityAvailable = false;
+    this.compatibilityPending = false;
+    this.compatibilityAttemptToken = null;
+    this.audioDecodeSample = null;
     this.selectedAudioTrackIndex = -1;
     this.audioFallbackApplying = false;
     this.failedAutomaticAudioFallbackEntryId = "";
@@ -3571,7 +3579,7 @@ export const PlayerScreen = {
   },
 
   getUnavailableTrackMessage(kind = "audio") {
-    return kind === "subtitle" ? "No subtitle tracks available." : "No audio tracks available.";
+    return kind === "subtitle" ? "No subtitle tracks available." : unavailableAudioMessage();
   },
 
   getVideoTextTrackList() {
@@ -4399,7 +4407,7 @@ export const PlayerScreen = {
           <div class="player-loading-status player-loading-spinner-status hidden"></div>
         </div>
 
-        <div id="playerStartupErrorOverlay" class="player-startup-error-overlay hidden" aria-hidden="true"></div>
+        <div id="playerStartupErrorOverlay" class="player-startup-error-overlay hidden" aria-hidden="true" role="alertdialog" aria-modal="true" aria-label="Playback error"></div>
 
         <div id="playerTorrentOverlay" class="player-torrent-overlay hidden" aria-hidden="true">
           <div class="player-torrent-overlay-row">
@@ -4429,12 +4437,12 @@ export const PlayerScreen = {
 
         <div id="playerNextEpisodeCard" class="player-next-episode-card hidden"></div>
 
-        <div id="playerModalBackdrop" class="player-modal-backdrop hidden"></div>
-        <div id="playerSubtitleDialog" class="player-modal player-subtitle-modal hidden"></div>
-        <div id="playerAudioDialog" class="player-modal player-audio-modal hidden"></div>
-        <div id="playerSpeedDialog" class="player-modal player-speed-modal hidden"></div>
-        <div id="playerMobileMorePanel" class="player-mobile-more-panel hidden"></div>
-        <div id="playerSourcesPanel" class="player-sources-panel hidden"></div>
+        <div id="playerModalBackdrop" class="player-modal-backdrop hidden" data-dialog-backdrop></div>
+        <div id="playerSubtitleDialog" class="player-modal player-subtitle-modal hidden" role="dialog" aria-modal="true" aria-label="Subtitles"></div>
+        <div id="playerAudioDialog" class="player-modal player-audio-modal hidden" role="dialog" aria-modal="true" aria-label="Audio"></div>
+        <div id="playerSpeedDialog" class="player-modal player-speed-modal hidden" role="dialog" aria-modal="true" aria-label="Playback speed"></div>
+        <div id="playerMobileMorePanel" class="player-mobile-more-panel hidden" role="dialog" aria-modal="true" aria-label="More playback controls"></div>
+        <div id="playerSourcesPanel" class="player-sources-panel hidden" role="dialog" aria-modal="true" aria-label="Sources"></div>
 
         <div id="playerControlsOverlay" class="player-controls-overlay">
           <div class="player-controls-gradient player-controls-gradient-top"></div>
@@ -4453,7 +4461,7 @@ export const PlayerScreen = {
             </div>
 
             <div class="player-controls-bar">
-              <div id="playerProgressShell" class="player-progress-shell focusable" tabindex="-1" data-player-pointer-action="progress">
+              <div id="playerProgressShell" class="player-progress-shell focusable" tabindex="0" role="slider" aria-label="Playback position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-player-pointer-action="progress">
                 <div class="player-progress-track">
                   <div id="playerProgressBuffered" class="player-progress-buffered"></div>
                   <div id="playerProgressFill" class="player-progress-fill"></div>
@@ -5012,9 +5020,9 @@ export const PlayerScreen = {
       finishProgressPointer(event, { cancelled: true });
 
     this.boundDesktopPlayerClickHandler = (event) => {
-      // Enter already activates the TV/D-pad focus target through onKeyDown.
-      // Do not run its keyboard-generated browser click a second time.
-      if (event.defaultPrevented || Number(event.detail || 0) === 0) {
+      // Handled keyboard shortcuts prevent their native click in onKeyDown.
+      // Keep zero-detail clicks from accessibility activation working too.
+      if (event.defaultPrevented) {
         return;
       }
       const target = event.target;
@@ -5225,6 +5233,7 @@ export const PlayerScreen = {
       ".player-controls-bottom",
       ".player-modal",
       ".player-modal-backdrop",
+      ".player-mobile-more-panel",
       ".player-sources-panel",
       ".player-episode-panel",
       ".player-pause-overlay",
@@ -5568,12 +5577,15 @@ export const PlayerScreen = {
       {
         visible: this.episodePanelVisible,
         node: this.uiRefs?.root?.querySelector("#episodeSidePanel"),
+        close: () => this.hideEpisodePanel()
+      },
+      {
+        visible: this.isCompactBrowserPlayerToolbar() && this.moreActionsVisible,
+        node: this.uiRefs?.mobileMorePanel,
         close: () => {
-          if (this.episodePanelMode === "streams") {
-            this.closeEpisodeStreamsView();
-          } else {
-            this.hideEpisodePanel();
-          }
+          this.moreActionsVisible = false;
+          this.renderControlButtons();
+          this.resetControlsAutoHide();
         }
       }
     ];
@@ -5755,6 +5767,7 @@ export const PlayerScreen = {
   },
 
   clearStartupError() {
+    this.awaitingPlaybackGesture = false;
     this.startupErrorMessage = "";
     this.startupErrorMediaCode = 0;
     this.startupErrorDetails = [];
@@ -5887,17 +5900,19 @@ export const PlayerScreen = {
         ? PlayerController.getLastHlsErrorDetail()
         : "";
     const httpStatus = extractPlaybackHttpStatus(
-      [
-        detail,
-        eventErrorDetail,
-        rememberedHlsError,
-        error?.message,
-        error?.name,
-        error?.errorText,
-        error?.status
-      ]
-        .filter(Boolean)
-        .join(" ")
+      resolverStatus
+        ? resolverDetail
+        : [
+            detail,
+            eventErrorDetail,
+            rememberedHlsError,
+            error?.message,
+            error?.name,
+            error?.errorText,
+            error?.status
+          ]
+            .filter(Boolean)
+            .join(" ")
     );
     const runtimeDetail =
       detail ||
@@ -5923,41 +5938,55 @@ export const PlayerScreen = {
     ].find(Boolean);
     const activeUrl =
       playbackUrl ||
-      this.activePlaybackUrl ||
       candidate?.url ||
       candidate?.externalUrl ||
       raw?.url ||
       raw?.externalUrl ||
+      (streamCandidate ? "" : this.activePlaybackUrl) ||
       "";
 
     pushPlaybackDiagnosticLine(lines, "Platform", "browser");
     pushPlaybackDiagnosticLine(lines, "Reason", reason);
-    pushPlaybackDiagnosticLine(lines, "Media code", this.getPlaybackErrorCodeLabel(mediaErrorCode));
     pushPlaybackDiagnosticLine(lines, "HTTP status", httpStatus || "unavailable");
-    pushPlaybackDiagnosticLine(lines, "Runtime error", runtimeDetail);
-    pushPlaybackDiagnosticLine(
-      lines,
-      "HLS error",
-      eventDetail?.hlsErrorDetails || eventDetail?.hlsErrorType || rememberedHlsError,
-      420
-    );
-    pushPlaybackDiagnosticLine(lines, "DASH error", eventDetail?.dashError);
-    pushPlaybackDiagnosticLine(lines, "HTML media error", mediaError?.message || mediaError?.code);
-    pushPlaybackDiagnosticLine(lines, "Video readyState", video?.readyState);
-    pushPlaybackDiagnosticLine(lines, "Video networkState", video?.networkState);
-    pushPlaybackDiagnosticLine(
-      lines,
-      "Current source",
-      describeSafePlaybackEndpoint(video?.currentSrc || video?.src)
-    );
-    pushPlaybackDiagnosticLine(
-      lines,
-      "Playback engine",
-      PlayerController.playbackEngine || "unknown"
-    );
-    pushPlaybackDiagnosticLine(lines, "Source", sourceLabel);
+    if (!resolverStatus) {
+      pushPlaybackDiagnosticLine(
+        lines,
+        "Media code",
+        this.getPlaybackErrorCodeLabel(mediaErrorCode)
+      );
+      pushPlaybackDiagnosticLine(lines, "Runtime error", runtimeDetail);
+      pushPlaybackDiagnosticLine(
+        lines,
+        "HLS error",
+        eventDetail?.hlsErrorDetails || eventDetail?.hlsErrorType || rememberedHlsError,
+        420
+      );
+      pushPlaybackDiagnosticLine(lines, "DASH error", eventDetail?.dashError);
+      pushPlaybackDiagnosticLine(
+        lines,
+        "HTML media error",
+        mediaError?.message || mediaError?.code
+      );
+      pushPlaybackDiagnosticLine(lines, "Video readyState", video?.readyState);
+      pushPlaybackDiagnosticLine(lines, "Video networkState", video?.networkState);
+      pushPlaybackDiagnosticLine(
+        lines,
+        "Loaded media",
+        describeSafePlaybackEndpoint(video?.currentSrc || video?.src)
+      );
+      pushPlaybackDiagnosticLine(
+        lines,
+        "Playback engine",
+        PlayerController.playbackEngine || "unknown"
+      );
+    }
+    pushPlaybackDiagnosticLine(lines, "Selected source", sourceLabel);
     pushPlaybackDiagnosticLine(lines, "Source type", sourceType);
-    pushPlaybackDiagnosticLine(lines, "Source endpoint", describeSafePlaybackEndpoint(activeUrl));
+    pushPlaybackDiagnosticLine(
+      lines,
+      "Selected source endpoint",
+      activeUrl ? describeSafePlaybackEndpoint(activeUrl) : "not resolved"
+    );
     pushPlaybackDiagnosticLine(lines, "Proxy header names", headerNames);
     pushPlaybackDiagnosticLine(lines, "Resolver status", resolverStatus);
     pushPlaybackDiagnosticLine(lines, "Resolver detail", resolverDetail);
@@ -6033,7 +6062,9 @@ export const PlayerScreen = {
     this.renderSpeedDialog();
     this.renderEpisodePanel();
     this.renderPauseOverlay();
+    this.updateModalBackdrop();
     this.renderStartupErrorOverlay();
+    this.setControlsVisible(true, { focus: false });
     this.focusStartupErrorButton();
   },
 
@@ -6058,6 +6089,11 @@ export const PlayerScreen = {
       if (playbackUrl !== String(this.activePlaybackUrl || "").trim()) {
         return;
       }
+      if (
+        this.compatibilityPending &&
+        this.compatibilityAttemptToken === PlayerController.playRequestToken
+      )
+        return;
       if (this.isStartupErrorVisible()) {
         return;
       }
@@ -6137,6 +6173,61 @@ export const PlayerScreen = {
     button?.classList?.add("focused");
   },
 
+  resumePlaybackFromGesture() {
+    this.clearStartupError();
+    this.releaseStartupAudioGate({ resume: false });
+    PlayerController.setStartupPresentationAudioMuted?.(false);
+    this.loadingVisible = true;
+    this.updateLoadingVisibility();
+    // Keep play() in the original click/key event for Safari's activation policy.
+    void PlayerController.attemptBrowserVideoPlay();
+  },
+
+  async startCompatibilityPlayback(track = null, { serverOnly = false } = {}) {
+    if (this.compatibilityPending) return;
+    const mountToken = this.playerMountToken;
+    const playToken = PlayerController.playRequestToken;
+    this.compatibilityAttemptToken = playToken;
+    this.compatibilityPending = true;
+    this.clearStartupError();
+    this.closeAudioDialog();
+    this.dismissPauseOverlay();
+    this.releaseStartupAudioGate({ resume: false });
+    this.clearPlaybackStallGuard();
+    this.loadingVisible = true;
+    this.updateLoadingVisibility();
+    try {
+      // Conversion can start before the browser has restored the saved position.
+      const position = this.pendingPlaybackRestore?.timeSeconds || this.getPlaybackCurrentSeconds();
+      await PlayerController.enableCompatibilityPlayback(position, {
+        track,
+        preferredLanguages: this.getStartupPreferredAudioLanguageTargets(),
+        serverOnly
+      });
+      if (!this.isActiveMountToken(mountToken) || playToken !== PlayerController.playRequestToken)
+        return;
+      if (!this.selectedAddonSubtitleId) this.startupSubtitlePreferenceApplied = false;
+      if (PlayerController.localAudio) {
+        this.startupAudioPreferenceApplied = false;
+        const subtitleIndex = this.subtitles.findIndex(
+          (s) => (s.id || s.url) === this.selectedAddonSubtitleId
+        );
+        if (subtitleIndex >= 0) void this.applyFallbackAddonSubtitle(subtitleIndex);
+      }
+      this.refreshTrackDialogs();
+      // Loading may have completed before the request promise settled.
+      if (!PlayerController.video.paused && PlayerController.video.readyState >= 3) {
+        this.presentStartedPlayback();
+      }
+    } catch (error) {
+      if (this.isActiveMountToken(mountToken) && playToken === PlayerController.playRequestToken) {
+        this.showStartupError(error.message, { details: [] });
+      }
+    } finally {
+      if (this.compatibilityAttemptToken === playToken) this.compatibilityPending = false;
+    }
+  },
+
   renderStartupErrorOverlay() {
     const overlay = this.uiRefs?.startupErrorOverlay;
     if (!overlay) {
@@ -6157,7 +6248,7 @@ export const PlayerScreen = {
       : [];
     overlay.innerHTML = `
       <div class="player-startup-error-shell">
-        <div class="player-startup-error-title">${escapeHtml(t("player_error_title", {}, "Playback Error"))}</div>
+        <div class="player-startup-error-title">${this.awaitingPlaybackGesture ? "Ready to play" : escapeHtml(t("player_error_title", {}, "Playback Error"))}</div>
         <div class="player-startup-error-message">${escapeHtml(message)}</div>
         ${
           detailLines.length
@@ -6168,7 +6259,8 @@ export const PlayerScreen = {
         `
             : ""
         }
-        <button class="player-startup-error-button focusable focused" type="button" tabindex="-1" data-player-error-action="back">
+        ${this.awaitingPlaybackGesture ? '<button class="player-startup-error-button focusable focused" type="button" data-player-error-action="play">Play</button>' : ""}
+        <button class="player-startup-error-button focusable" type="button" tabindex="0" data-player-error-action="back">
           ${escapeHtml(t("player_go_back", {}, "Go Back"))}
         </button>
       </div>
@@ -6557,6 +6649,7 @@ export const PlayerScreen = {
   canShowPauseOverlay() {
     return (
       PlayerSettingsStore.get().pauseOverlayEnabled !== false &&
+      !this.isStartupErrorVisible() &&
       !this.isExternalFrameMode() &&
       this.paused &&
       !this.loadingVisible &&
@@ -8311,7 +8404,11 @@ export const PlayerScreen = {
       }
       seen.add(cue);
       const snapshot = this.getSubtitleCueSnapshot(cue);
-      this.applySubtitleCueDelay(cue, snapshot, this.subtitleDelayMs);
+      this.applySubtitleCueDelay(
+        cue,
+        snapshot,
+        this.subtitleDelayMs - (PlayerController.compatibility?.offset || 0) * 1000
+      );
       this.applySubtitleCueVerticalOffset(cue, snapshot, verticalOffset);
     });
     return subtitleTextChanged;
@@ -8382,13 +8479,24 @@ export const PlayerScreen = {
       this.audioDialogVisible ||
       this.sourcesPanelVisible ||
       this.episodePanelVisible ||
-      this.speedDialogVisible;
+      this.speedDialogVisible ||
+      (this.isCompactBrowserPlayerToolbar() && this.moreActionsVisible);
     modalBackdrop.classList.toggle("hidden", !hasModal);
     modalBackdrop.classList.toggle("episodes-open", Boolean(this.episodePanelVisible));
     controlsOverlay?.classList.toggle("modal-blocked", hasModal);
   },
 
   bindVideoEvents() {
+    const mountToken = this.playerMountToken;
+    void fetch("/api/playback/health")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((health) => {
+        if (!this.isActiveMountToken(mountToken)) return;
+        this.compatibilityAvailable = health?.available === true;
+        this.attemptSilentAudioRecovery("health");
+        void this.discoverHiddenAudioTracks();
+      })
+      .catch(() => {});
     const video = PlayerController.video;
     if (!video) {
       return;
@@ -8417,6 +8525,8 @@ export const PlayerScreen = {
         this.seekLoadingTargetSeconds = null;
         this.clearBufferingSpinnerTimer();
       }
+      if (PlayerController.compatibility || PlayerController.localAudio)
+        this.presentStartedPlayback();
       if (this.startupAudioGateActive && !this.startupAudioGateAllowsPlayback) {
         this.paused = false;
         this.startupTrackPreferenceReady = true;
@@ -8463,6 +8573,7 @@ export const PlayerScreen = {
     };
 
     const onPause = () => {
+      if (this.compatibilityPending || PlayerController.compatibilitySeeking) return;
       if (this.startupAudioGateActive) {
         this.paused = false;
         this.updateMediaSessionPlaybackState();
@@ -8492,6 +8603,7 @@ export const PlayerScreen = {
     };
 
     const onTimeUpdate = () => {
+      this.attemptSilentAudioRecovery("progress");
       if (this.isStartupErrorVisible()) {
         return;
       }
@@ -8531,6 +8643,7 @@ export const PlayerScreen = {
       this.scheduleLoadingCompletionCheck(900);
       setTimeout(() => {
         this.attemptSilentAudioRecovery("metadata");
+        void this.discoverHiddenAudioTracks();
       }, 500);
     };
 
@@ -8573,6 +8686,11 @@ export const PlayerScreen = {
     };
 
     const onError = async (event) => {
+      if (
+        this.compatibilityPending &&
+        this.compatibilityAttemptToken === PlayerController.playRequestToken
+      )
+        return;
       if (this.isStartupErrorVisible()) {
         return;
       }
@@ -8605,6 +8723,8 @@ export const PlayerScreen = {
       // same source the player was actually playing.
       const currentSourceCandidate =
         this.getStreamCandidateByUrl(this.activePlaybackUrl) || this.getCurrentStreamCandidate();
+
+      if (this.attemptSilentAudioRecovery("error")) return;
       const terminalHlsHttpFailure = isTerminalHlsHttpStatus(eventDetail.hlsResponseCode);
       if (
         !this.hasPresentedPlaybackFrame &&
@@ -8690,6 +8810,27 @@ export const PlayerScreen = {
     };
 
     const bindings = [
+      [
+        "compatibilityerror",
+        (event) =>
+          this.showStartupError(event.detail?.message || "Compatibility playback stopped.", {
+            details: []
+          })
+      ],
+      [
+        "localaudioerror",
+        () => {
+          if (!this.compatibilityPending)
+            void this.startCompatibilityPlayback(null, { serverOnly: true });
+        }
+      ],
+      [
+        "playbackgesture",
+        () => {
+          this.awaitingPlaybackGesture = true;
+          this.showStartupError("Tap Play to start this video.", { details: [] });
+        }
+      ],
       ["waiting", onWaiting],
       ["playing", onPlaying],
       ["error", onError],
@@ -8885,6 +9026,7 @@ export const PlayerScreen = {
     }
     const visible = this.isCompactBrowserPlayerToolbar() && this.moreActionsVisible;
     panel.classList.toggle("hidden", !visible);
+    this.updateModalBackdrop();
     if (!visible) {
       panel.innerHTML = "";
       return;
@@ -8964,12 +9106,17 @@ export const PlayerScreen = {
     }
     this.controlFocusIndex = clamp(this.controlFocusIndex, 0, Math.max(0, controls.length - 1));
 
+    const focusedAction =
+      Environment.isBrowser() && wrap.contains(document.activeElement)
+        ? document.activeElement?.dataset?.action
+        : null;
     wrap.innerHTML = controls
       .map(
         (control) => `
       <button class="player-control-btn focusable${control.primary ? " is-primary" : ""}"
               data-action="${control.action}"
               tabindex="-1"
+              aria-label="${escapeHtml(control.title || control.label || control.action)}"
               title="${escapeHtml(control.title || "")}">
         ${
           control.icon
@@ -8990,15 +9137,12 @@ export const PlayerScreen = {
       this.controlFocusZone = "";
       buttons.forEach((button) => {
         button.classList.remove("focused");
-        if (document.activeElement === button) {
-          button.blur?.();
-        }
+        button.tabIndex = 0;
+        if (focusedAction && button.dataset.action === focusedAction)
+          button.focus({ preventScroll: true });
       });
       const progressShell = this.uiRefs?.progressShell;
       progressShell?.classList?.remove("focused");
-      if (document.activeElement === progressShell) {
-        progressShell?.blur?.();
-      }
       this.renderCompactBrowserMorePanel();
       this.renderNextEpisodeCard();
       this.syncPlayerOverlayLayoutState();
@@ -9076,15 +9220,9 @@ export const PlayerScreen = {
     if (Environment.isBrowser()) {
       Array.from(wrap.querySelectorAll(".player-control-btn")).forEach((button) => {
         button.classList.remove("focused");
-        if (document.activeElement === button) {
-          button.blur?.();
-        }
       });
       const progressShell = this.uiRefs?.progressShell;
       progressShell?.classList?.remove("focused");
-      if (document.activeElement === progressShell) {
-        progressShell?.blur?.();
-      }
       return;
     }
 
@@ -9148,7 +9286,8 @@ export const PlayerScreen = {
       this.audioDialogVisible ||
       this.sourcesPanelVisible ||
       this.episodePanelVisible ||
-      this.speedDialogVisible
+      this.speedDialogVisible ||
+      (this.isCompactBrowserPlayerToolbar() && this.moreActionsVisible)
     );
   },
 
@@ -9222,11 +9361,21 @@ export const PlayerScreen = {
   },
 
   setControlsVisible(visible, { focus = false } = {}) {
+    if (
+      !visible &&
+      Environment.isBrowser() &&
+      document.documentElement?.classList.contains("keyboard-navigation") &&
+      this.uiRefs?.controlsOverlay?.contains(document.activeElement)
+    )
+      return;
     this.controlsVisible = Boolean(visible);
     if (Environment.isBrowser()) {
       this.container?.classList.toggle(
         "desktop-player-cursor-hidden",
-        !this.controlsVisible && !this.paused
+        !this.controlsVisible &&
+          !this.paused &&
+          !this.isDialogOpen() &&
+          !this.isStartupErrorVisible()
       );
     }
     if (this.isExternalFrameMode()) {
@@ -9642,7 +9791,13 @@ export const PlayerScreen = {
 
   resetControlsAutoHide() {
     this.clearControlsAutoHide();
-    if (!this.controlsVisible || this.paused || this.isDialogOpen() || this.seekOverlayVisible) {
+    if (
+      !this.controlsVisible ||
+      this.paused ||
+      this.isDialogOpen() ||
+      this.isStartupErrorVisible() ||
+      this.seekOverlayVisible
+    ) {
       return;
     }
     this.controlsHideTimer = setTimeout(() => {
@@ -10023,6 +10178,15 @@ export const PlayerScreen = {
       }
     }
     const progressFill = uiRefs.progressFill;
+    if (uiRefs.progressShell && uiState.accessibleProgress !== Math.floor(current)) {
+      uiRefs.progressShell.setAttribute("aria-valuemax", String(Math.floor(duration || 0)));
+      uiRefs.progressShell.setAttribute("aria-valuenow", String(Math.floor(current || 0)));
+      uiRefs.progressShell.setAttribute(
+        "aria-valuetext",
+        `${formatTime(current)} / ${formatTime(duration)}`
+      );
+      uiState.accessibleProgress = Math.floor(current);
+    }
     if (progressFill) {
       const nextWidth = `${Math.round(progress * 10000) / 100}%`;
       if (uiState.progressWidth !== nextWidth) {
@@ -10673,39 +10837,9 @@ export const PlayerScreen = {
             raw: { ...(streamCandidate.raw || {}), ...(result.stream.raw || {}) }
           });
         } else {
-          fallbackError =
-            result.status === "service_degraded"
-              ? t(
-                  "stream.debrid.serviceDegraded",
-                  {},
-                  "The Debrid service is currently degraded. Try again later or choose another source."
-                )
-              : result.status === "not_cached"
-                ? t("stream.debrid.notCached", {}, "Not cached on this service.")
-                : result.status === "stale"
-                  ? t("stream.debrid.stale", {}, "This Debrid result expired. Refreshing streams.")
-                  : t("stream.debrid.failed", {}, "Could not resolve this Debrid stream.");
+          fallbackError = debridResolveErrorMessage(result);
           resolveFailureStatus = result.status || "debrid-failed";
           resolveFailureDetail = result.detail || result.error || "";
-          if (result.status === "service_degraded") {
-            if (!this.hasPresentedPlaybackFrame) {
-              this.showStartupError(fallbackError, {
-                streamCandidate,
-                reason: "debrid-resolve",
-                resolverStatus: resolveFailureStatus,
-                resolverDetail: resolveFailureDetail
-              });
-            } else {
-              this.sourcesError = this.formatPlaybackErrorForSources(fallbackError, {
-                streamCandidate,
-                reason: "debrid-resolve",
-                resolverStatus: resolveFailureStatus,
-                resolverDetail: resolveFailureDetail
-              });
-              this.renderSourcesPanel();
-            }
-            return;
-          }
         }
       }
 
@@ -10844,8 +10978,36 @@ export const PlayerScreen = {
   },
 
   attemptSilentAudioRecovery(reason = "silent-audio") {
-    void reason;
-    return false;
+    const video = PlayerController.video;
+    const playToken = PlayerController.playRequestToken;
+    if (
+      (!this.compatibilityAvailable && !PlayerController.canUseLocalAudioPlayback?.()) ||
+      !video ||
+      PlayerController.compatibility ||
+      PlayerController.localAudio ||
+      !/^https?:/i.test(PlayerController.currentPlaybackUrl) ||
+      this.compatibilityAttemptToken === playToken
+    )
+      return false;
+
+    const unsupportedAudio = browserSourceWarnings(
+      this.getCurrentStreamCandidate() || {},
+      video
+    ).some((warning) => warning.startsWith("Audio"));
+    if (this.audioDecodeSample?.token !== playToken) {
+      this.audioDecodeSample = { token: playToken, time: video.currentTime };
+    }
+    // Chromium exposes decoded bytes even when it hides its audio track list.
+    // Six seconds of decoded video with zero audio bytes is useful evidence; an empty track list isn't.
+    const audioNotDecoding =
+      !video.paused &&
+      video.currentTime - this.audioDecodeSample.time >= 6 &&
+      video.webkitVideoDecodedByteCount > 0 &&
+      video.webkitAudioDecodedByteCount === 0;
+    const mediaError = [2, 3, 4].includes(Number(video.error?.code)) || reason === "error";
+    if (!unsupportedAudio && !audioNotDecoding && !mediaError) return false;
+    void this.startCompatibilityPlayback();
+    return true;
   },
 
   clearPlaybackStallGuard() {
@@ -10888,6 +11050,9 @@ export const PlayerScreen = {
   },
 
   getPlaybackStallTimeoutMs({ startup = false } = {}) {
+    // The conversion request has its own 60-second deadline. A normal 9-second
+    // stall timeout would cancel a healthy seek while FFmpeg prepares segments.
+    if (this.compatibilityPending || PlayerController.compatibilitySeeking) return 65000;
     return startup ? 18000 : 9000;
   },
 
@@ -10905,6 +11070,10 @@ export const PlayerScreen = {
     this.playbackStallTimer = setTimeout(() => {
       this.playbackStallTimer = null;
       if (this.isExternalFrameMode() || !this.loadingVisible || !this.activePlaybackUrl) {
+        return;
+      }
+      if (this.compatibilityPending || PlayerController.compatibilitySeeking) {
+        this.schedulePlaybackStallGuard();
         return;
       }
 
@@ -11473,6 +11642,7 @@ export const PlayerScreen = {
   },
 
   clearHtmlSubtitleOverlay() {
+    this.embeddedSubtitleSelection = null;
     if (this.htmlSubtitleRenderFrame != null) {
       if (typeof cancelAnimationFrame === "function") {
         cancelAnimationFrame(this.htmlSubtitleRenderFrame);
@@ -11575,6 +11745,7 @@ export const PlayerScreen = {
   },
 
   renderHtmlSubtitleOverlayAtCurrentTime() {
+    void this.refreshEmbeddedSubtitleWindow();
     if (!Array.isArray(this.htmlSubtitleCues) || !this.htmlSubtitleCues.length) {
       return false;
     }
@@ -11750,6 +11921,36 @@ export const PlayerScreen = {
       (this.trackDiscoveryInProgress || this.subtitleLoading || this.manifestLoading);
 
     if (tab === "builtIn") {
+      const embedded = PlayerController.getEmbeddedSubtitleTracks?.() || [];
+      if (
+        embedded.length &&
+        !builtInTracks.length &&
+        !dashSubtitleTracks.length &&
+        !hlsSubtitleTracks.length
+      ) {
+        return [
+          {
+            id: "subtitle-off",
+            label: t("subtitle_none", {}, "None"),
+            selected: this.isSubtitleOffEntrySelected(),
+            trackIndex: -1
+          },
+          ...embedded.map((track) => {
+            const display = formatSubtitleTrackDisplay(track, track.index);
+            return {
+              ...display,
+              id: `subtitle-embedded-${track.index}`,
+              track,
+              isForced: track.forced,
+              secondary:
+                track.supported === false ? "Image subtitles need an external player" : "Embedded",
+              selected: this.selectedAddonSubtitleId === `embedded:${track.index}`,
+              embeddedSubtitleTrack: track.index,
+              trackIndex: null
+            };
+          })
+        ];
+      }
       if (dashSubtitleTracks.length) {
         return [
           {
@@ -13141,6 +13342,7 @@ export const PlayerScreen = {
     return String(side || "").toLowerCase() === "plus" ? 1 : -1;
   },
   openSubtitleDialog() {
+    void this.discoverEmbeddedSubtitleTracks();
     this.cancelSeekPreview({ commit: false });
     this.syncTrackState();
     this.subtitleDialogVisible = true;
@@ -13218,6 +13420,13 @@ export const PlayerScreen = {
       this.cancelSubtitlePointerScrollTransaction();
       return;
     }
+    if (Number.isInteger(entry.embeddedSubtitleTrack) && entry.track?.supported === false) {
+      this.showAspectToast(
+        "This image subtitle format needs an external player. Try an addon subtitle."
+      );
+      this.cancelSubtitlePointerScrollTransaction();
+      return;
+    }
     const selectionToken = Number(this.subtitleSelectionToken || 0) + 1;
     this.subtitleSelectionToken = selectionToken;
     const pointerScrollTransaction = this.subtitlePointerScrollTransaction;
@@ -13231,6 +13440,25 @@ export const PlayerScreen = {
     }
     if (!entry.fallbackAddonSubtitle) {
       this.clearHtmlSubtitleOverlay();
+    }
+
+    if (Number.isInteger(entry.embeddedSubtitleTrack)) {
+      const id = `embedded:${entry.embeddedSubtitleTrack}`;
+      this.selectedAddonSubtitleId = id;
+      this.selectedSubtitleTrackIndex = -1;
+      this.selectedManifestSubtitleTrackId = null;
+      this.htmlSubtitleSelectedId = id;
+      this.embeddedSubtitleSelection = {
+        index: entry.embeddedSubtitleTrack,
+        token: selectionToken
+      };
+      this.resetSubtitleDelayAfterSelectionChange(previousSubtitleSelectionKey);
+      this.invalidateTrackDialogCaches();
+      this.renderControlButtons();
+      this.renderSubtitleDialog();
+      void this.refreshEmbeddedSubtitleWindow();
+      this.settleSubtitlePointerScrollTransaction(selectionToken);
+      return;
     }
 
     if (Object.prototype.hasOwnProperty.call(entry, "dashSubtitleTrackIndex")) {
@@ -13369,6 +13597,69 @@ export const PlayerScreen = {
     this.settleSubtitlePointerScrollTransaction(selectionToken);
   },
 
+  async refreshEmbeddedSubtitleWindow() {
+    const selected = this.embeddedSubtitleSelection;
+    if (!selected || selected.pending || selected.retryAt > Date.now()) return;
+    const position = Math.max(
+      0,
+      this.getPlaybackCurrentSeconds() - (this.subtitleDelayMs || 0) / 1000
+    );
+    if (
+      selected.window &&
+      position >= selected.window.offset &&
+      (position < selected.window.end - 20 ||
+        selected.window.end >= PlayerController.getDurationSeconds())
+    )
+      return;
+    selected.pending = true;
+    const playToken = PlayerController.playRequestToken;
+    try {
+      const result = await PlayerController.readEmbeddedSubtitles(selected.index, position);
+      if (
+        this.embeddedSubtitleSelection !== selected ||
+        playToken !== PlayerController.playRequestToken
+      )
+        return;
+      selected.window = result;
+      this.htmlSubtitleCues = this.parseSubtitleCues(result.text).map((cue) => ({
+        ...cue,
+        start: cue.start + result.offset,
+        end: cue.end + result.offset
+      }));
+      this.htmlSubtitleActiveCueKey = "";
+      this.scheduleHtmlSubtitleOverlayRender();
+    } catch (error) {
+      if (
+        this.embeddedSubtitleSelection !== selected ||
+        playToken !== PlayerController.playRequestToken
+      )
+        return;
+      selected.retryAt = Date.now() + 15000;
+      if (!selected.errorShown)
+        this.showAspectToast(error.message || "Could not load embedded subtitles.");
+      selected.errorShown = true;
+    } finally {
+      selected.pending = false;
+    }
+  },
+
+  async discoverEmbeddedSubtitleTracks() {
+    const playToken = PlayerController.playRequestToken;
+    if (
+      !this.compatibilityAvailable ||
+      PlayerController.playbackEngine !== "native-file" ||
+      PlayerController.compatibility ||
+      PlayerController.localAudio ||
+      PlayerController.audioInspection?.playToken === playToken ||
+      this.resolveBuiltInSubtitleBoundary() > 0
+    )
+      return;
+    await PlayerController.inspectBrowserAudioTracks();
+    if (playToken !== PlayerController.playRequestToken) return;
+    if (!this.selectedAddonSubtitleId) this.startupSubtitlePreferenceApplied = false;
+    this.refreshTrackDialogs();
+  },
+
   async applyFallbackAddonSubtitle(subtitleIndex, selectionToken = this.subtitleSelectionToken) {
     const subtitle = this.subtitles[subtitleIndex];
     if (!subtitle?.url) {
@@ -13397,6 +13688,29 @@ export const PlayerScreen = {
 
     const resolvedSubtitleUrl = await this.resolveSubtitlePlaybackUrl(subtitle.url);
     if (!isCurrentSelection() || !resolvedSubtitleUrl) {
+      this.settleSubtitlePointerScrollTransaction(selectionToken);
+      return;
+    }
+
+    if (PlayerController.localAudio) {
+      // MediaStream time starts at zero and cannot follow seeks. Use the existing
+      // subtitle overlay, which reads the controller's original media timeline.
+      try {
+        const response = await fetch(resolvedSubtitleUrl);
+        if (!response.ok) throw new Error("Subtitle load failed");
+        const text = await response.text();
+        if (!isCurrentSelection()) return;
+        this.clearHtmlSubtitleOverlay();
+        this.htmlSubtitleCues = this.parseSubtitleCues(text);
+        this.htmlSubtitleSelectedId = subtitleId;
+        this.selectedAddonSubtitleId = subtitleId;
+        this.selectedSubtitleTrackIndex = -1;
+        this.scheduleHtmlSubtitleOverlayRender();
+        this.renderControlButtons();
+        this.renderSubtitleDialog();
+      } catch {
+        /* Keep playback running if an addon subtitle cannot be fetched. */
+      }
       this.settleSubtitlePointerScrollTransaction(selectionToken);
       return;
     }
@@ -13804,6 +14118,35 @@ export const PlayerScreen = {
     );
   },
 
+  async discoverHiddenAudioTracks() {
+    const playToken = PlayerController.playRequestToken;
+    if (
+      !this.compatibilityAvailable ||
+      this.compatibilityPending ||
+      PlayerController.compatibility ||
+      PlayerController.playbackEngine !== "native-file" ||
+      PlayerController.video?.readyState < 1 ||
+      !/^https?:/i.test(PlayerController.currentPlaybackUrl) ||
+      PlayerController.audioInspection?.playToken === playToken ||
+      this.getAudioEntries().length
+    )
+      return;
+    const mountToken = this.playerMountToken;
+    const pending = PlayerController.inspectBrowserAudioTracks();
+    this.renderAudioDialog();
+    await pending;
+    if (
+      !this.isActiveMountToken(mountToken) ||
+      playToken !== PlayerController.playRequestToken ||
+      this.compatibilityPending ||
+      PlayerController.compatibility
+    )
+      return;
+    this.startupAudioPreferenceApplied = false;
+    if (!this.selectedAddonSubtitleId) this.startupSubtitlePreferenceApplied = false;
+    this.refreshTrackDialogs();
+  },
+
   getAudioEntries() {
     const cachedEntries = this.trackDialogCache?.audioEntries;
     if (cachedEntries) {
@@ -13865,29 +14208,12 @@ export const PlayerScreen = {
     return true;
   },
 
-  adjustAudioAmplification(delta = 0) {
-    const nextDb = clamp(
-      Number(this.audioAmplificationDb || 0) + Number(delta || 0),
-      AUDIO_AMPLIFICATION_MIN_DB,
-      AUDIO_AMPLIFICATION_MAX_DB
-    );
-    this.audioAmplificationDb = nextDb;
-    this.persistPlayerPresentationSettings();
-    this.applyAudioAmplification();
-    this.renderAudioDialog();
-  },
-
-  togglePersistAudioAmplification() {
-    this.persistAudioAmplification = !this.persistAudioAmplification;
-    this.persistPlayerPresentationSettings();
-    this.renderAudioDialog();
-  },
-
   openAudioDialog() {
     this.cancelSeekPreview({ commit: false });
     this.syncTrackState();
     this.applyAudioAmplification();
     this.audioDialogVisible = true;
+    void this.discoverHiddenAudioTracks();
     this.subtitleDialogVisible = false;
     this.speedDialogVisible = false;
     this.sourcesPanelVisible = false;
@@ -13931,6 +14257,14 @@ export const PlayerScreen = {
       return;
     }
 
+    if (selectedEntry.track.engine === "inspected") {
+      if (rememberSelection)
+        this.rememberAudioTrackSelection(this.getAudioTrackPreference(selectedEntry));
+      if (!selectedEntry.selected)
+        void this.startCompatibilityPlayback(selectedEntry.track.sourceIndex);
+      return;
+    }
+
     const browserAudioTrackIndex = Number(selectedEntry.browserAudioTrackIndex);
     if (!Number.isFinite(browserAudioTrackIndex)) {
       return;
@@ -13957,144 +14291,46 @@ export const PlayerScreen = {
 
   renderAudioDialog() {
     const dialog = this.uiRefs?.audioDialog;
-    if (!dialog) {
-      return;
-    }
-
+    if (!dialog) return;
     dialog.classList.toggle("hidden", !this.audioDialogVisible);
     if (!this.audioDialogVisible) {
       dialog.innerHTML = "";
       return;
     }
-
     const entries = this.getAudioEntries();
-    const hasSupportedEntries = entries.some((entry) => entry?.supported !== false);
-    const audioControls = [
-      {
-        id: "amplification",
-        title: t("audio_mix_label", {}, "Audio boost"),
-        value: `${Math.round(Number(this.audioAmplificationDb || 0))} dB`,
-        helper: this.audioAmplificationAvailable
-          ? t(
-              "audio_mix_range",
-              { min: AUDIO_AMPLIFICATION_MIN_DB, max: AUDIO_AMPLIFICATION_MAX_DB },
-              `Range ${AUDIO_AMPLIFICATION_MIN_DB}-${AUDIO_AMPLIFICATION_MAX_DB} dB`
-            )
-          : t("audio_mix_unavailable", {}, "Unavailable on this device"),
-        enabled: Boolean(this.audioAmplificationAvailable),
-        canDecrease:
-          this.audioAmplificationAvailable &&
-          Number(this.audioAmplificationDb || 0) > AUDIO_AMPLIFICATION_MIN_DB,
-        canIncrease:
-          this.audioAmplificationAvailable &&
-          Number(this.audioAmplificationDb || 0) < AUDIO_AMPLIFICATION_MAX_DB
-      },
-      {
-        id: "persist",
-        title: this.persistAudioAmplification
-          ? t("audio_mix_persist_on", {}, "Save audio boost: On")
-          : t("audio_mix_persist_off", {}, "Save audio boost: Off"),
-        value: "",
-        helper: t("audio_mix_persist_help", {}, "Remember boost for future playback"),
-        enabled: true,
-        toggle: true
-      }
-    ];
-    this.audioMixFocusIndex = clamp(this.audioMixFocusIndex, 0, audioControls.length - 1);
-    if (!entries.length) {
-      this.audioFocusedColumn = "controls";
-      const loading =
-        this.isCurrentSourceAdaptiveManifest() &&
-        (this.manifestLoading || this.trackDiscoveryInProgress);
-      const emptyMessage = loading
-        ? "Loading audio tracks..."
-        : this.getUnavailableTrackMessage("audio");
-      dialog.innerHTML = `
-        <div class="player-dialog-title">${escapeHtml(t("audio_dialog_title", {}, "Audio"))}</div>
-        <div class="player-dialog-empty${loading ? " player-dialog-loading" : ""}">
-          ${loading ? renderLoadingIndicator() : ""}
-          <span>${escapeHtml(emptyMessage)}</span>
-        </div>
-        <div class="player-audio-controls-list">
-          ${audioControls.map((control, index) => this.renderAudioControlItem(control, index)).join("")}
-        </div>
-      `;
-      return;
-    }
-
-    this.audioDialogIndex = clamp(this.audioDialogIndex, 0, entries.length - 1);
+    const inspection =
+      PlayerController.audioInspection?.playToken === PlayerController.playRequestToken
+        ? PlayerController.audioInspection
+        : null;
+    const loading =
+      inspection?.pending ||
+      (this.isCurrentSourceAdaptiveManifest() &&
+        (this.manifestLoading || this.trackDiscoveryInProgress));
+    this.audioDialogIndex = clamp(this.audioDialogIndex, 0, Math.max(0, entries.length - 1));
     dialog.innerHTML = `
       <div class="player-dialog-title">${escapeHtml(t("audio_dialog_title", {}, "Audio"))}</div>
-      ${hasSupportedEntries ? "" : `<div class="player-audio-support-message">${escapeHtml(t("player.audio.noSupportedTracks", {}, "No supported audio tracks available"))}</div>`}
-      <div class="player-audio-overlay-grid">
-        <div class="player-dialog-list player-audio-track-list">
-          ${entries
-            .map((entry, index) => {
-              const selected = entry.selected;
-              const focused =
-                this.audioFocusedColumn === "tracks" && index === this.audioDialogIndex;
-              const disabled = entry.supported === false;
-              const label = disabled
-                ? `${entry.label || ""} · ${t("player.audio.unsupported", {}, "Unsupported")}`
-                : entry.label || "";
-              const secondary = disabled
-                ? [
-                    entry.secondary,
-                    t("player.audio.unsupportedCodec", {}, "Codec not supported by this device")
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")
-                : entry.secondary || "";
-              return `
-              <div class="player-dialog-item focusable${selected ? " selected" : ""}${focused ? " focused" : ""}${disabled ? " disabled" : ""}" data-audio-column="tracks" data-audio-index="${index}" aria-disabled="${disabled ? "true" : "false"}">
-                <div class="player-dialog-item-main">${escapeHtml(label)}</div>
-                <div class="player-dialog-item-sub">${escapeHtml(secondary)}</div>
-                <div class="player-dialog-item-check">${selected ? "&#10003;" : ""}</div>
-              </div>
-            `;
-            })
-            .join("")}
-        </div>
-        <div class="player-audio-controls-list">
-          ${audioControls.map((control, index) => this.renderAudioControlItem(control, index)).join("")}
-        </div>
-      </div>
+      ${
+        !entries.length
+          ? `<div class="player-dialog-empty${loading ? " player-dialog-loading" : ""}">
+        ${loading ? renderLoadingIndicator() : ""}
+        <span>${escapeHtml(loading ? "Loading audio tracks..." : inspection?.error || this.getUnavailableTrackMessage("audio"))}</span>
+      </div>`
+          : `<div class="player-dialog-list player-audio-track-list">
+        ${entries
+          .map(
+            (entry, index) => `
+          <button type="button" class="player-dialog-item focusable${entry.selected ? " selected" : ""}${index === this.audioDialogIndex ? " focused" : ""}${entry.supported === false ? " disabled" : ""}"
+            data-audio-column="tracks" data-audio-index="${index}" aria-pressed="${Boolean(entry.selected)}" ${entry.supported === false ? "disabled" : ""}>
+            <span class="player-dialog-item-main">${escapeHtml(entry.label || "")}</span>
+            <span class="player-dialog-item-sub">${escapeHtml(entry.supported === false ? "Audio not supported" : entry.secondary || "")}</span>
+            <span class="player-dialog-item-check" aria-hidden="true">${entry.selected ? "&#10003;" : ""}</span>
+          </button>`
+          )
+          .join("")}
+      </div>`
+      }
     `;
     this.scrollAudioDialogIntoView();
-  },
-
-  renderAudioControlItem(control, index) {
-    const focused = this.audioFocusedColumn === "controls" && index === this.audioMixFocusIndex;
-    if (control.toggle) {
-      return `
-        <div class="player-audio-control-card player-audio-toggle focusable${this.persistAudioAmplification ? " selected" : ""}${focused ? " focused" : ""}" data-audio-column="controls" data-audio-index="${index}">
-          <div class="player-dialog-item-main">${escapeHtml(control.title)}</div>
-          <div class="player-dialog-item-sub">${escapeHtml(control.helper || "")}</div>
-        </div>
-      `;
-    }
-    return `
-      <div class="player-audio-control-card focusable${focused ? " focused" : ""}${!control.enabled ? " disabled" : ""}" data-audio-column="controls" data-audio-index="${index}">
-        <div class="player-audio-control-title">${escapeHtml(control.title)}</div>
-        <div class="player-audio-control-value">${escapeHtml(control.value)}</div>
-        <div class="player-audio-step-row">
-          <button class="player-dialog-step player-dialog-step-minus focusable${focused ? " focused" : ""}${!control.canDecrease ? " disabled" : ""}" type="button" tabindex="-1" data-audio-column="controls" data-audio-index="${index}" data-audio-step="-1">&#8722;</button>
-          <button class="player-dialog-step player-dialog-step-plus focusable${focused ? " focused" : ""}${!control.canIncrease ? " disabled" : ""}" type="button" tabindex="-1" data-audio-column="controls" data-audio-index="${index}" data-audio-step="1">&#43;</button>
-        </div>
-        <div class="player-dialog-item-sub">${escapeHtml(control.helper || "")}</div>
-      </div>
-    `;
-  },
-
-  activateAudioControl(direction = 0) {
-    if (this.audioMixFocusIndex === 0) {
-      if (!this.audioAmplificationAvailable) {
-        return;
-      }
-      this.adjustAudioAmplification(direction < 0 ? -1 : 1);
-      return;
-    }
-    this.togglePersistAudioAmplification();
   },
 
   scrollAudioDialogIntoView() {
@@ -14109,70 +14345,21 @@ export const PlayerScreen = {
   handleAudioDialogKey(event) {
     const keyCode = Number(event?.keyCode || 0);
     const entries = this.getAudioEntries();
-    const isNavigationKey =
-      keyCode === 37 ||
-      keyCode === 38 ||
-      keyCode === 39 ||
-      keyCode === 40 ||
-      isSelectKeyCode(keyCode);
-
-    if (keyCode === 37) {
-      if (this.audioFocusedColumn === "controls") {
-        if (this.audioMixFocusIndex === 0) {
-          this.activateAudioControl(-1);
-        } else if (entries.length) {
-          this.audioFocusedColumn = "tracks";
-          this.renderAudioDialog();
-        }
-      }
-      return true;
-    }
-
-    if (keyCode === 39) {
-      if (this.audioFocusedColumn === "tracks") {
-        if (!entries.length) {
-          this.audioFocusedColumn = "controls";
-          this.renderAudioDialog();
-          return true;
-        }
-        this.audioFocusedColumn = "controls";
-        this.renderAudioDialog();
-      } else if (this.audioMixFocusIndex === 0) {
-        this.activateAudioControl(1);
-      }
-      return true;
-    }
-
-    if (keyCode === 38) {
-      if (this.audioFocusedColumn === "tracks") {
-        this.audioDialogIndex = clamp(this.audioDialogIndex - 1, 0, entries.length - 1);
-      } else {
-        this.audioMixFocusIndex = clamp(this.audioMixFocusIndex - 1, 0, 1);
-      }
+    if (keyCode === 38 || keyCode === 40) {
+      this.audioDialogIndex = clamp(
+        this.audioDialogIndex + (keyCode === 38 ? -1 : 1),
+        0,
+        Math.max(0, entries.length - 1)
+      );
       this.renderAudioDialog();
+      this.uiRefs?.audioDialog?.querySelector(".focused")?.focus();
       return true;
     }
-
-    if (keyCode === 40) {
-      if (this.audioFocusedColumn === "tracks") {
-        this.audioDialogIndex = clamp(this.audioDialogIndex + 1, 0, entries.length - 1);
-      } else {
-        this.audioMixFocusIndex = clamp(this.audioMixFocusIndex + 1, 0, 1);
-      }
-      this.renderAudioDialog();
-      return true;
-    }
-
     if (isSelectKeyCode(keyCode)) {
-      if (this.audioFocusedColumn === "tracks") {
-        this.applyAudioTrack(this.audioDialogIndex, { rememberSelection: true });
-      } else {
-        this.activateAudioControl(this.audioMixFocusIndex === 0 ? 1 : 0);
-      }
+      this.applyAudioTrack(this.audioDialogIndex, { rememberSelection: true });
       return true;
     }
-
-    return isNavigationKey;
+    return keyCode === 37 || keyCode === 39;
   },
 
   openSpeedDialog() {
@@ -14546,7 +14733,9 @@ export const PlayerScreen = {
     const filters = this.getSourceFilters(orderedSources);
     const filtered = this.getFilteredSources(orderedSources);
     const badgeSettings = StreamBadgeSettingsStore.snapshot();
-    const showAddonLogo = badgeSettings.showAddonLogo === true;
+    const showAddonLogo =
+      badgeSettings.showAddonLogo === true &&
+      (!Environment.isBrowser() || this.sourceFilter === "all");
     const badgePlacement = resolvePlayerSourceBadgePlacement(badgeSettings);
     this.ensureSourcesFocus(filters, filtered);
 
@@ -14629,6 +14818,7 @@ export const PlayerScreen = {
                   ${mainTitle}
                   <div class="player-source-desc">${escapeHtml(stream.description || stream.addonName || "")}</div>
                   ${bottomBadges}
+                  ${Environment.isBrowser() ? renderBrowserSourceWarnings(browserSourceWarnings(stream)) : ""}
                 </div>
                 ${sourceSide}
               </article>
@@ -15599,7 +15789,9 @@ export const PlayerScreen = {
     const streams = this.getFilteredEpisodePanelStreams();
     const focus = this.episodePanelStreamFocus || { zone: "actions", index: 0 };
     const badgeSettings = StreamBadgeSettingsStore.snapshot();
-    const showAddonLogo = badgeSettings.showAddonLogo === true;
+    const showAddonLogo =
+      badgeSettings.showAddonLogo === true &&
+      (!Environment.isBrowser() || this.episodePanelStreamFilter === "all");
     const badgePlacement = resolvePlayerSourceBadgePlacement(badgeSettings);
     const episodeCode = episodeDisplayCode(selectedEpisode);
     const episodeTitle = String(
@@ -15711,6 +15903,9 @@ export const PlayerScreen = {
     const panel = document.createElement("div");
     panel.id = "episodeSidePanel";
     panel.className = "player-episode-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-label", "Episodes");
 
     this.syncEpisodePanelSeasonToIndex();
     const seasons = this.getEpisodePanelSeasons();
@@ -15804,6 +15999,7 @@ export const PlayerScreen = {
     this.episodePanelStreamLoadToken = Number(this.episodePanelStreamLoadToken || 0) + 1;
     const panel = this.uiRefs?.root?.querySelector("#episodeSidePanel");
     panel?.classList.add("is-exiting");
+    panel?.setAttribute("aria-hidden", "true");
     if (this.episodePanelExitTimer) {
       clearTimeout(this.episodePanelExitTimer);
     }
@@ -16212,13 +16408,7 @@ export const PlayerScreen = {
 
     const audioNode = target?.closest?.("[data-audio-column]");
     if (audioNode && this.audioDialogVisible) {
-      this.audioFocusedColumn = audioNode.dataset.audioColumn || "tracks";
-      const index = Number(audioNode.dataset.audioIndex || 0);
-      if (this.audioFocusedColumn === "tracks") {
-        this.audioDialogIndex = index;
-      } else {
-        this.audioMixFocusIndex = index;
-      }
+      this.audioDialogIndex = Number(audioNode.dataset.audioIndex || 0);
       return;
     }
 
@@ -16354,6 +16544,10 @@ export const PlayerScreen = {
 
     const errorAction = target.closest?.("[data-player-error-action]");
     if (errorAction && this.isStartupErrorVisible()) {
+      if (errorAction.dataset.playerErrorAction === "play" && this.awaitingPlaybackGesture) {
+        this.resumePlaybackFromGesture();
+        return true;
+      }
       if (String(errorAction.dataset.playerErrorAction || "") === "back") {
         this.navigateBackToStreamScreen();
         return true;
@@ -16435,19 +16629,9 @@ export const PlayerScreen = {
       return handled;
     }
 
-    const audioStep = target.closest?.("[data-audio-step]");
-    if (audioStep && this.audioDialogVisible) {
-      this.activateAudioControl(Number(audioStep.dataset.audioStep || 1));
-      return true;
-    }
-
     const audioNode = target.closest?.("[data-audio-column]");
     if (audioNode && this.audioDialogVisible) {
-      if (this.audioFocusedColumn === "tracks") {
-        this.applyAudioTrack(this.audioDialogIndex, { rememberSelection: true });
-      } else {
-        this.activateAudioControl(this.audioMixFocusIndex === 0 ? 1 : 0);
-      }
+      this.applyAudioTrack(Number(audioNode.dataset.audioIndex), { rememberSelection: true });
       return true;
     }
 
@@ -16516,6 +16700,7 @@ export const PlayerScreen = {
   },
 
   hasBackDismissableOverlay() {
+    if (this.isStartupErrorVisible()) return false;
     return Boolean(
       this.stillWatchingPromptVisible ||
       this.seekOverlayVisible ||
@@ -16640,6 +16825,25 @@ export const PlayerScreen = {
 
   async handleBrowserKeyDown(event) {
     const keyCode = Number(event?.keyCode || 0);
+    if (event?.target?.id === "playerProgressShell") {
+      const duration = PlayerController.getDurationSeconds();
+      const current = this.getPlaybackCurrentSeconds();
+      const targets = {
+        ArrowLeft: current - 10,
+        ArrowRight: current + 10,
+        ArrowDown: current - 10,
+        ArrowUp: current + 10,
+        Home: 0,
+        End: duration,
+        PageDown: current - 60,
+        PageUp: current + 60
+      };
+      if (event.key in targets) {
+        event.preventDefault();
+        this.seekPlaybackSeconds(clamp(targets[event.key], 0, duration));
+        return true;
+      }
+    }
     const isBackKey = isBackEvent(event);
     const eventTarget = event?.target instanceof Element ? event.target : document.activeElement;
     const activeTarget =
@@ -16662,9 +16866,18 @@ export const PlayerScreen = {
     }
 
     if (this.isStartupErrorVisible()) {
+      if (keyCode === 9) return false;
       event?.preventDefault?.();
       event?.stopPropagation?.();
-      if (isBackKey || isSelectKeyCode(keyCode) || keyCode === 66) {
+      if (isSelectKeyCode(keyCode)) {
+        const active = document.activeElement;
+        if (active?.matches?.("[data-player-error-action]"))
+          void this.onPointerActivate(active, event);
+        else if (this.awaitingPlaybackGesture) this.resumePlaybackFromGesture();
+        else this.navigateBackToStreamScreen();
+        return true;
+      }
+      if (isBackKey || keyCode === 66) {
         if (!this.navigateBackToStreamScreen()) {
           Router.back();
         }

@@ -47,7 +47,13 @@ test("TorBox expiry and real failures stop polling instead of being treated as p
 });
 
 test("device authorization expires from the start response timestamp without another redeem call", () => {
-  assert.equal(isDeviceAuthorizationExpired("2030-01-01T00:00:00Z", Date.parse("2029-12-31T23:59:59Z")), false);
-  assert.equal(isDeviceAuthorizationExpired("2030-01-01T00:00:00Z", Date.parse("2030-01-01T00:00:00Z")), true);
+  assert.equal(
+    isDeviceAuthorizationExpired("2030-01-01T00:00:00Z", Date.parse("2029-12-31T23:59:59Z")),
+    false
+  );
+  assert.equal(
+    isDeviceAuthorizationExpired("2030-01-01T00:00:00Z", Date.parse("2030-01-01T00:00:00Z")),
+    true
+  );
   assert.equal(isDeviceAuthorizationExpired("not-a-date", Date.now()), false);
 });

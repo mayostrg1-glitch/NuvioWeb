@@ -10,7 +10,9 @@ async function withBridge(options, run) {
   try {
     await run(`http://127.0.0.1:${port}`);
   } finally {
-    await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    await new Promise((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
   }
 }
 
@@ -20,6 +22,28 @@ function upstream(payload, status = 200, headers = {}) {
     headers: { "Content-Type": "application/json", ...headers }
   });
 }
+
+test("deployment health identifies its release and every resolver route rejects missing credentials", async () => {
+  await withBridge(
+    {
+      revision: "test-release",
+      fetchImpl: () => assert.fail("Unauthenticated requests must not reach TorBox")
+    },
+    async (baseUrl) => {
+      const health = await fetch(`${baseUrl}/api/debrid/health`);
+      assert.deepEqual(await health.json(), { ok: true, revision: "test-release" });
+      for (const action of ["cache/check", "torrent/create", "torrent/lookup", "link/resolve"]) {
+        const response = await fetch(`${baseUrl}/api/debrid/torbox/${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
+        assert.equal(response.status, 401);
+        assert.equal((await response.json()).error, "missing_provider_credential");
+      }
+    }
+  );
+});
 
 test("TorBox device start uses the fixed upstream URL and returns only device fields", async () => {
   const calls = [];
@@ -74,7 +98,9 @@ test("TorBox bridge preserves the documented HTTP 400 success:false pending poll
       }
     },
     async (baseUrl) => {
-      const failedStart = await fetch(`${baseUrl}/api/debrid/torbox/device/start`, { method: "POST" });
+      const failedStart = await fetch(`${baseUrl}/api/debrid/torbox/device/start`, {
+        method: "POST"
+      });
       assert.deepEqual(await failedStart.json(), {
         ok: false,
         error: "provider_request_failed",
@@ -105,8 +131,14 @@ test("TorBox redeem reports expiry and keeps unexpected failures fatal", async (
       fetchImpl: async () => {
         call += 1;
         return call === 1
-          ? upstream({ success: false, error: "expired_device_code", detail: "Device code expired" }, 400)
-          : upstream({ success: false, error: "invalid_request", detail: "Malformed request" }, 400);
+          ? upstream(
+              { success: false, error: "expired_device_code", detail: "Device code expired" },
+              400
+            )
+          : upstream(
+              { success: false, error: "invalid_request", detail: "Malformed request" },
+              400
+            );
       }
     },
     async (baseUrl) => {
@@ -140,7 +172,10 @@ test("TorBox redeem returns the existing token envelope without logging credenti
     {
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
-        return upstream({ success: true, data: { access_token: "provider-token", other: "hidden" } });
+        return upstream({
+          success: true,
+          data: { access_token: "provider-token", other: "hidden" }
+        });
       }
     },
     async (baseUrl) => {
@@ -202,7 +237,11 @@ test("bridge rejects unknown, arbitrary, invalid-method, oversized, redirect, an
       requestTimeoutMs: 10,
       fetchImpl: async (_url, options) => {
         fetchCalls += 1;
-        if (fetchCalls === 1) return new Response(null, { status: 302, headers: { Location: "https://example.invalid" } });
+        if (fetchCalls === 1)
+          return new Response(null, {
+            status: 302,
+            headers: { Location: "https://example.invalid" }
+          });
         return new Promise((_resolve, reject) => {
           options.signal.addEventListener("abort", () => reject(new Error("aborted")));
         });
@@ -242,7 +281,11 @@ test("Premiumize uses fixed device and account endpoints when supplied with a pu
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
         if (url.endsWith("/token")) {
-          return upstream({ device_code: "device", user_code: "CODE", verification_uri: "https://premiumize.me/device" });
+          return upstream({
+            device_code: "device",
+            user_code: "CODE",
+            verification_uri: "https://premiumize.me/device"
+          });
         }
         return upstream({ status: "success" });
       }
@@ -334,7 +377,10 @@ test("TorBox lookup and link resolution keep credentials out of same-origin URLs
       }
     },
     async (baseUrl) => {
-      const headers = { "Content-Type": "application/json", Authorization: "Bearer credential-value" };
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: "Bearer credential-value"
+      };
       const lookup = await fetch(`${baseUrl}/api/debrid/torbox/torrent/lookup`, {
         method: "POST",
         headers,
@@ -370,19 +416,40 @@ test("TorBox playback bridge sanitizes uncached, missing, and malformed provider
       }
     },
     async (baseUrl) => {
-      const headers = { "Content-Type": "application/json", Authorization: "Bearer credential-value" };
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: "Bearer credential-value"
+      };
       const create = await fetch(`${baseUrl}/api/debrid/torbox/torrent/create`, {
-        method: "POST", headers, body: JSON.stringify({ magnet: "magnet:?xt=urn:btih:hash" })
+        method: "POST",
+        headers,
+        body: JSON.stringify({ magnet: "magnet:?xt=urn:btih:hash" })
       });
-      assert.deepEqual(await create.json(), { ok: false, error: "provider_request_failed", status: 409 });
+      assert.deepEqual(await create.json(), {
+        ok: false,
+        error: "provider_request_failed",
+        status: 409
+      });
       const lookup = await fetch(`${baseUrl}/api/debrid/torbox/torrent/lookup`, {
-        method: "POST", headers, body: JSON.stringify({ torrentId: "torrent-id" })
+        method: "POST",
+        headers,
+        body: JSON.stringify({ torrentId: "torrent-id" })
       });
-      assert.deepEqual(await lookup.json(), { ok: false, error: "provider_request_failed", status: 404 });
+      assert.deepEqual(await lookup.json(), {
+        ok: false,
+        error: "provider_request_failed",
+        status: 404
+      });
       const link = await fetch(`${baseUrl}/api/debrid/torbox/link/resolve`, {
-        method: "POST", headers, body: JSON.stringify({ torrentId: "torrent-id" })
+        method: "POST",
+        headers,
+        body: JSON.stringify({ torrentId: "torrent-id" })
       });
-      assert.deepEqual(await link.json(), { ok: false, error: "provider_request_failed", status: 500 });
+      assert.deepEqual(await link.json(), {
+        ok: false,
+        error: "provider_request_failed",
+        status: 500
+      });
     }
   );
 });

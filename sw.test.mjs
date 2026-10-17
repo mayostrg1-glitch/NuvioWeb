@@ -19,7 +19,10 @@ test("external playback push uses privacy-safe text and notification clicks focu
   assert.match(source, /Playback completed\. Tap to return to NuvioWeb\./);
   assert.match(source, /data: \{ type: "external-playback-return" \}/);
   assert.match(source, /self\.addEventListener\("notificationclick"/);
-  assert.match(source, /self\.clients\.matchAll\(\{ type: "window", includeUncontrolled: true \}\)/);
+  assert.match(
+    source,
+    /self\.clients\.matchAll\(\{ type: "window", includeUncontrolled: true \}\)/
+  );
   assert.match(source, /String\(client\.url \|\| ""\)\.startsWith\(scope\)/);
   assert.match(source, /self\.clients\.openWindow\(scope\)/);
   assert.doesNotMatch(source, /webapp:\/\//);

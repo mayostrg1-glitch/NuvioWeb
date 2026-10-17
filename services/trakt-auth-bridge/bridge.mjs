@@ -66,9 +66,7 @@ function readJsonBody(request) {
 }
 
 function pickFields(payload, fields) {
-  return Object.fromEntries(
-    Object.entries(payload || {}).filter(([key]) => fields.has(key))
-  );
+  return Object.fromEntries(Object.entries(payload || {}).filter(([key]) => fields.has(key)));
 }
 
 function isNonEmptyString(value) {
@@ -134,7 +132,9 @@ async function requestTraktToken(fetchImpl, path, body) {
 }
 
 function upstreamError(status, payload, retryAfter = "") {
-  const safeMessage = String(payload?.error_description || payload?.error || "Trakt authorization failed");
+  const safeMessage = String(
+    payload?.error_description || payload?.error || "Trakt authorization failed"
+  );
   const seconds = String(retryAfter || "").trim();
   return {
     status: Math.max(400, Math.min(599, Number(status) || 502)),
@@ -146,7 +146,10 @@ function upstreamError(status, payload, retryAfter = "") {
   };
 }
 
-export function createTraktAuthBridgeHandler({ environment = process.env, fetchImpl = fetch } = {}) {
+export function createTraktAuthBridgeHandler({
+  environment = process.env,
+  fetchImpl = fetch
+} = {}) {
   const config = bridgeConfiguration(environment);
   // The client id is the whole requirement now. Demanding a secret alongside it
   // turned every request into a 503 for any app that cannot be issued one.

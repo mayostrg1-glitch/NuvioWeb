@@ -5,7 +5,10 @@
 // ("replaceForProfile", e.g. a cloud-sync pull) always refreshes; and an
 // authoritative write (e.g. an accepted external-player callback report)
 // refreshes even though its reason is "upsert"/"remove".
-export function shouldRefreshContinueWatchingForChange({ profileId, reason, authoritative } = {}, activeProfileId) {
+export function shouldRefreshContinueWatchingForChange(
+  { profileId, reason, authoritative } = {},
+  activeProfileId
+) {
   if (String(profileId || "") !== String(activeProfileId || "")) {
     return false;
   }

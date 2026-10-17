@@ -8,7 +8,10 @@ import { watchedItemsRepository } from "../../../data/repository/watchedItemsRep
 import { CollectionsStore } from "../../../data/local/collectionsStore.js";
 import { LayoutPreferences } from "../../../data/local/layoutPreferences.js";
 import { TmdbService } from "../../../core/tmdb/tmdbService.js";
-import { getEffectiveTmdbApiKey, TmdbSettingsStore } from "../../../data/local/tmdbSettingsStore.js";
+import {
+  getEffectiveTmdbApiKey,
+  TmdbSettingsStore
+} from "../../../data/local/tmdbSettingsStore.js";
 import { TmdbMetadataService } from "../../../core/tmdb/tmdbMetadataService.js";
 import { TRAKT_API_URL, TRAKT_CLIENT_ID } from "../../../config.js";
 import {
@@ -30,7 +33,10 @@ import {
   renderTitleWatchedBadge
 } from "../../components/watchedTitleBadge.js";
 import { renderLoadingIndicator } from "../../components/loadingIndicator.js";
-import { bindDesktopNavigationEvents, renderDesktopNavigation } from "../../components/desktopNavigation.js";
+import {
+  bindDesktopNavigationEvents,
+  renderDesktopNavigation
+} from "../../components/desktopNavigation.js";
 import { bindBrowserCardTouchIntent } from "../../components/browserCardTouchIntent.js";
 import { bindMediaContextMenu } from "../../components/mediaContextActions.js";
 import {
@@ -973,7 +979,9 @@ export const FolderDetailScreen = {
     this.tabs = [];
     const preferredHomeLayout = String(this.layoutPrefs?.homeLayout || "classic").toLowerCase();
     this.isDesktopBrowser = Platform.isBrowser();
-    this.sidebarProfile = this.isDesktopBrowser ? await getSidebarProfileState().catch(() => null) : null;
+    this.sidebarProfile = this.isDesktopBrowser
+      ? await getSidebarProfileState().catch(() => null)
+      : null;
     const savedViewMode = String(this.collection?.viewMode || "TABBED_GRID").toUpperCase();
     // Browser collections keep their own information architecture. FOLLOW_LAYOUT
     // intentionally maps to its non-hero row presentation on desktop.
@@ -1181,8 +1189,9 @@ export const FolderDetailScreen = {
         normalized &&
         !/^(none|null|undefined)$/i.test(normalized) &&
         normalized.toLowerCase() !== collectionTitle.toLowerCase() &&
-        values.findIndex((entry) => String(entry || "").toLowerCase() === normalized.toLowerCase()) ===
-          index
+        values.findIndex(
+          (entry) => String(entry || "").toLowerCase() === normalized.toLowerCase()
+        ) === index
       );
     });
   },
@@ -2177,7 +2186,10 @@ export const FolderDetailScreen = {
   // broad useHomeFollowLayout gate is deliberately left alone: it governs far
   // more than menus, so menus are wired independently of it.
   isPosterOptionsTarget(node) {
-    return Boolean(node?.matches?.(".seeall-card[data-action='openDetail']")) && Boolean(this.container?.contains(node));
+    return (
+      Boolean(node?.matches?.(".seeall-card[data-action='openDetail']")) &&
+      Boolean(this.container?.contains(node))
+    );
   },
 
   async openPosterOptionsMenu(node, invokeOptions = {}) {
@@ -2232,8 +2244,7 @@ export const FolderDetailScreen = {
     }
     const target = this.pendingPosterHoldTarget;
     const hadTimer = Boolean(this.pendingPosterHoldTimer);
-    const heldLongEnough =
-      Number(event?.keyDownDurationMs || 0) >= COLLECTION_POSTER_HOLD_DELAY_MS;
+    const heldLongEnough = Number(event?.keyDownDurationMs || 0) >= COLLECTION_POSTER_HOLD_DELAY_MS;
     this.cancelPendingPosterHold();
     if (hadTimer && target === node) {
       if (heldLongEnough) {

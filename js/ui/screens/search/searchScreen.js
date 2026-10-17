@@ -872,10 +872,7 @@ export const SearchScreen = {
               // catalog asked for without disturbing the ones beside it.
               const landscape =
                 Platform.isBrowser() &&
-                shouldDrawCardLandscape(
-                  this.layoutPrefs?.catalogCardOrientation,
-                  item.posterShape
-                );
+                shouldDrawCardLandscape(this.layoutPrefs?.catalogCardOrientation, item.posterShape);
               const art = landscape
                 ? item.background || item.backdrop || item.landscapePoster || item.poster || ""
                 : item.poster || "";
@@ -1050,14 +1047,17 @@ export const SearchScreen = {
         }
         const track = target.closest(".search-results-track");
         const hasHorizontalWheelIntent =
-          Boolean(event.shiftKey) || Math.abs(Number(event.deltaX || 0)) > Math.abs(Number(event.deltaY || 0));
+          Boolean(event.shiftKey) ||
+          Math.abs(Number(event.deltaX || 0)) > Math.abs(Number(event.deltaY || 0));
         if (!track || !this.container?.contains(track) || !hasHorizontalWheelIntent) {
           return;
         }
         track.scrollLeft += Number(event.deltaX || 0) || Number(event.deltaY || 0);
         event.preventDefault?.();
       };
-      this.container.addEventListener("wheel", this.boundDesktopSearchWheelHandler, { passive: false });
+      this.container.addEventListener("wheel", this.boundDesktopSearchWheelHandler, {
+        passive: false
+      });
     }
 
     this.container.querySelectorAll(".search-results-track").forEach((track) => {
@@ -1067,7 +1067,10 @@ export const SearchScreen = {
       track.dataset.desktopDragBound = "true";
 
       track.addEventListener("dragstart", (event) => {
-        if (event.target instanceof HTMLImageElement && event.target.closest(".search-result-card")) {
+        if (
+          event.target instanceof HTMLImageElement &&
+          event.target.closest(".search-result-card")
+        ) {
           event.preventDefault();
         }
       });

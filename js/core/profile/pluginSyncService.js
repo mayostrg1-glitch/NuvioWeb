@@ -169,16 +169,22 @@ export const PluginSyncService = {
       const pending = pendingLocalChanges.get(String(profileId));
       if (pending) {
         const beforeKeys = new Set((pending.before || []).map(sourceKey));
-        const afterByKey = new Map((pending.after || []).map((source) => [sourceKey(source), source]));
+        const afterByKey = new Map(
+          (pending.after || []).map((source) => [sourceKey(source), source])
+        );
         mergedSources = mergedSources
-          .filter((source) => !beforeKeys.has(sourceKey(source)) || afterByKey.has(sourceKey(source)))
+          .filter(
+            (source) => !beforeKeys.has(sourceKey(source)) || afterByKey.has(sourceKey(source))
+          )
           .map((source) => afterByKey.get(sourceKey(source)) || source);
         afterByKey.forEach((source, key) => {
           if (!mergedSources.some((entry) => sourceKey(entry) === key)) mergedSources.push(source);
         });
       }
       writeLocalSources(mergedSources);
-      const result = remoteSources.length ? SyncPullResult.SUCCESS_WITH_DATA : SyncPullResult.SUCCESS_EMPTY;
+      const result = remoteSources.length
+        ? SyncPullResult.SUCCESS_WITH_DATA
+        : SyncPullResult.SUCCESS_EMPTY;
       await SyncHydrationState.completePull(syncContext, "plugins", result);
       return { result, items: mergedSources };
     } catch (error) {
@@ -195,7 +201,9 @@ export const PluginSyncService = {
       const profileId = await resolvePluginProfileId();
       const syncContext = context || (await SyncHydrationState.capture(profileId));
       if (automatic && !(await SyncHydrationState.allowsAutomaticPush(syncContext, "plugins"))) {
-        console.info("[Sync] plugins automatic push blocked", { hydration: SyncHydrationState.get(syncContext, "plugins") });
+        console.info("[Sync] plugins automatic push blocked", {
+          hydration: SyncHydrationState.get(syncContext, "plugins")
+        });
         return false;
       }
       const sources = readLocalSources();

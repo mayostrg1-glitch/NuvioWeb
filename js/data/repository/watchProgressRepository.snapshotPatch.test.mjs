@@ -15,10 +15,7 @@ const SNAPSHOT_KEY = "homeContinueWatchingDisplaySnapshot";
 const SCOPE_KEY = "1:nuvio_sync";
 
 function seedSnapshot(items) {
-  values.set(
-    SNAPSHOT_KEY,
-    JSON.stringify({ [SCOPE_KEY]: { savedAt: Date.now(), items } })
-  );
+  values.set(SNAPSHOT_KEY, JSON.stringify({ [SCOPE_KEY]: { savedAt: Date.now(), items } }));
 }
 
 function readSnapshotScope() {
@@ -30,8 +27,24 @@ function readSnapshotScope() {
 test("saveProgress() patches position/duration in place for an item already in the snapshot", async () => {
   values.clear();
   seedSnapshot([
-    { contentId: "tt-shown", videoId: null, season: null, episode: null, positionMs: 1000, durationMs: 9000, title: "Shown" },
-    { contentId: "tt-other", videoId: null, season: null, episode: null, positionMs: 2000, durationMs: 9000, title: "Other" }
+    {
+      contentId: "tt-shown",
+      videoId: null,
+      season: null,
+      episode: null,
+      positionMs: 1000,
+      durationMs: 9000,
+      title: "Shown"
+    },
+    {
+      contentId: "tt-other",
+      videoId: null,
+      season: null,
+      episode: null,
+      positionMs: 2000,
+      durationMs: 9000,
+      title: "Other"
+    }
   ]);
   try {
     await watchProgressRepository.saveProgress({
@@ -45,7 +58,11 @@ test("saveProgress() patches position/duration in place for an item already in t
     const patched = scope.items.find((item) => item.contentId === "tt-shown");
     const untouched = scope.items.find((item) => item.contentId === "tt-other");
     assert.equal(patched.positionMs, 5000);
-    assert.equal(untouched.positionMs, 2000, "an unrelated item in the same snapshot is left alone");
+    assert.equal(
+      untouched.positionMs,
+      2000,
+      "an unrelated item in the same snapshot is left alone"
+    );
   } finally {
     values.clear();
   }
@@ -54,7 +71,15 @@ test("saveProgress() patches position/duration in place for an item already in t
 test("saveProgress() leaves the snapshot untouched for an item not already in it", async () => {
   values.clear();
   seedSnapshot([
-    { contentId: "tt-shown", videoId: null, season: null, episode: null, positionMs: 1000, durationMs: 9000, title: "Shown" }
+    {
+      contentId: "tt-shown",
+      videoId: null,
+      season: null,
+      episode: null,
+      positionMs: 1000,
+      durationMs: 9000,
+      title: "Shown"
+    }
   ]);
   try {
     await watchProgressRepository.saveProgress({

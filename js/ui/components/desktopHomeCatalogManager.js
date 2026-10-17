@@ -16,7 +16,9 @@ function escapeHtml(value) {
 }
 
 function catalogTypeLabel(type) {
-  const value = String(type || "").trim().toLowerCase();
+  const value = String(type || "")
+    .trim()
+    .toLowerCase();
   if (value === "series") return "Show";
   if (value === "movie") return "Movie";
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : "Catalog";
@@ -67,8 +69,7 @@ export function createDesktopHomeCatalogManager({ requestRender } = {}) {
       }
       return {
         ...item,
-        isHeroSource:
-          !hasExplicitHeroSelection || heroCatalogKeys.has(String(item.key || ""))
+        isHeroSource: !hasExplicitHeroSelection || heroCatalogKeys.has(String(item.key || ""))
       };
     });
   };
@@ -220,7 +221,10 @@ export function createDesktopHomeCatalogManager({ requestRender } = {}) {
 
     bind(container) {
       container.querySelectorAll("[data-home-catalog-toggle]").forEach((node) => {
-        node.addEventListener("change", () => void toggleVisibility(state.items[Number(node.dataset.homeCatalogToggle || -1)]));
+        node.addEventListener(
+          "change",
+          () => void toggleVisibility(state.items[Number(node.dataset.homeCatalogToggle || -1)])
+        );
       });
       bindDrag(container);
     }

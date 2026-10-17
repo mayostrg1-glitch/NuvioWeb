@@ -160,13 +160,18 @@ async function restorePendingAddonAdditions(profileId, remoteUrls = []) {
   await addonRepository.setAddonOrder(mergedUrls, { silent: true });
   addonRepository.setAddonEnabledStates(
     mergedUrls
-      .filter((url) => !beforeSet.has(url) || pending.before.enabled?.[url] !== pending.after.enabled?.[url])
+      .filter(
+        (url) =>
+          !beforeSet.has(url) || pending.before.enabled?.[url] !== pending.after.enabled?.[url]
+      )
       .map((url) => ({ url, enabled: pending.after.enabled?.[url] !== false })),
     { replace: false }
   );
   addonRepository.setAddonDisplayNameOverrides(
     mergedUrls
-      .filter((url) => !beforeSet.has(url) || pending.before.names?.[url] !== pending.after.names?.[url])
+      .filter(
+        (url) => !beforeSet.has(url) || pending.before.names?.[url] !== pending.after.names?.[url]
+      )
       .map((url) => ({ url, name: pending.after.names?.[url] || "" })),
     { replace: false }
   );
@@ -190,7 +195,9 @@ export const LibrarySyncService = {
   },
 
   hasPendingLocalMutation(profileId = null) {
-    return pendingLocalSnapshots.has(String(profileId ?? ProfileManager.getActiveProfileId() ?? "1"));
+    return pendingLocalSnapshots.has(
+      String(profileId ?? ProfileManager.getActiveProfileId() ?? "1")
+    );
   },
 
   async pull({ context = null } = {}) {
@@ -224,7 +231,9 @@ export const LibrarySyncService = {
         }
         recordPullStatus("ok", { count: addonUrls.length });
         const resolvedUrls = await restorePendingAddonAdditions(profileId, addonUrls);
-        const result = resolvedUrls.length ? SyncPullResult.SUCCESS_WITH_DATA : SyncPullResult.SUCCESS_EMPTY;
+        const result = resolvedUrls.length
+          ? SyncPullResult.SUCCESS_WITH_DATA
+          : SyncPullResult.SUCCESS_EMPTY;
         await SyncHydrationState.completePull(syncContext, "addons", result);
         return { result, items: resolvedUrls };
       } catch (addonsTableError) {
@@ -251,7 +260,9 @@ export const LibrarySyncService = {
         }
         recordPullStatus("ok", { count: urls.length });
         const resolvedUrls = await restorePendingAddonAdditions(profileId, urls);
-        const result = resolvedUrls.length ? SyncPullResult.SUCCESS_WITH_DATA : SyncPullResult.SUCCESS_EMPTY;
+        const result = resolvedUrls.length
+          ? SyncPullResult.SUCCESS_WITH_DATA
+          : SyncPullResult.SUCCESS_EMPTY;
         await SyncHydrationState.completePull(syncContext, "addons", result);
         return { result, items: resolvedUrls };
       } catch (tvTableError) {
@@ -278,7 +289,9 @@ export const LibrarySyncService = {
           }
           recordPullStatus("ok", { count: urls.length });
           const resolvedUrls = await restorePendingAddonAdditions(profileId, urls);
-          const result = resolvedUrls.length ? SyncPullResult.SUCCESS_WITH_DATA : SyncPullResult.SUCCESS_EMPTY;
+          const result = resolvedUrls.length
+            ? SyncPullResult.SUCCESS_WITH_DATA
+            : SyncPullResult.SUCCESS_EMPTY;
           await SyncHydrationState.completePull(syncContext, "addons", result);
           return { result, items: resolvedUrls };
         } catch (rpcError) {
@@ -309,7 +322,9 @@ export const LibrarySyncService = {
       const profileId = await resolveAddonProfileId();
       const syncContext = context || (await SyncHydrationState.capture(profileId));
       if (automatic && !(await SyncHydrationState.allowsAutomaticPush(syncContext, "addons"))) {
-        console.info("[Sync] addons automatic push blocked", { hydration: SyncHydrationState.get(syncContext, "addons") });
+        console.info("[Sync] addons automatic push blocked", {
+          hydration: SyncHydrationState.get(syncContext, "addons")
+        });
         return false;
       }
       const urls = addonRepository.getInstalledAddonUrls();

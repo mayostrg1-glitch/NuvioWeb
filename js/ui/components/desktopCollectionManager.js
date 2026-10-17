@@ -34,7 +34,8 @@ export function createDesktopCollectionManager({ requestRender } = {}) {
     if (deferWhileReordering(() => void rerender())) return;
     await requestRender?.();
   };
-  const replace = (collections) => CollectionsStore.replaceForProfile(activeProfileId(), collections);
+  const replace = (collections) =>
+    CollectionsStore.replaceForProfile(activeProfileId(), collections);
 
   const addCollection = async () => {
     const title = String(state.draftName || "").trim();
@@ -59,7 +60,8 @@ export function createDesktopCollectionManager({ requestRender } = {}) {
 
   const deleteCollection = async (index) => {
     const collection = state.collections[index];
-    if (!collection || !globalThis.confirm?.(`Delete ${collection.title}? This cannot be undone.`)) return;
+    if (!collection || !globalThis.confirm?.(`Delete ${collection.title}? This cannot be undone.`))
+      return;
     CollectionsStore.removeCollection(collection.id, { profileId: activeProfileId() });
     load();
     await rerender();
@@ -80,17 +82,29 @@ export function createDesktopCollectionManager({ requestRender } = {}) {
   };
 
   return {
-    async load() { load(); await rerender(); },
-    toggle() { state.expanded = !state.expanded; load(); },
-    get expanded() { return state.expanded; },
+    async load() {
+      load();
+      await rerender();
+    },
+    toggle() {
+      state.expanded = !state.expanded;
+      load();
+    },
+    get expanded() {
+      return state.expanded;
+    },
     render() {
       const rows = state.collections.length
-        ? state.collections.map((collection, index) => `
+        ? state.collections
+            .map(
+              (collection, index) => `
           <article class="desktop-collection-manager-row" data-desktop-collection-row>
             <button type="button" class="desktop-collection-drag-handle" data-desktop-collection-drag="${index}" aria-label="Reorder ${escapeHtml(collection.title)}"><span class="material-icons">drag_indicator</span></button>
             <div class="desktop-collection-manager-copy"><h3>${escapeHtml(collection.title)}</h3><p>${collection.folders.length} ${collection.folders.length === 1 ? "folder" : "folders"} · ${viewModeLabel(collection.viewMode)}${collection.pinToTop ? " · Pinned" : ""}</p></div>
             <div class="desktop-collection-manager-actions"><button type="button" data-desktop-collection-edit="${index}">Edit</button><button type="button" data-desktop-collection-delete="${index}" class="is-danger">Delete</button></div>
-          </article>`).join("")
+          </article>`
+            )
+            .join("")
         : '<p class="desktop-collection-manager-empty">No custom collections yet.</p>';
       return `
         <div class="desktop-collection-manager">
@@ -102,14 +116,33 @@ export function createDesktopCollectionManager({ requestRender } = {}) {
     },
     bind(container) {
       const input = container.querySelector("[data-desktop-collection-name]");
-      input?.addEventListener("input", () => { state.draftName = input.value; state.error = ""; });
-      input?.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void addCollection(); } });
-      container.querySelector("[data-desktop-collection-add]")?.addEventListener("click", () => void addCollection());
-      container.querySelectorAll("[data-desktop-collection-edit]").forEach((button) => button.addEventListener("click", () => {
-        const collection = state.collections[Number(button.dataset.desktopCollectionEdit)];
-        if (collection) void Router.navigate("collectionEdit", { collectionId: collection.id });
-      }));
-      container.querySelectorAll("[data-desktop-collection-delete]").forEach((button) => button.addEventListener("click", () => void deleteCollection(Number(button.dataset.desktopCollectionDelete))));
+      input?.addEventListener("input", () => {
+        state.draftName = input.value;
+        state.error = "";
+      });
+      input?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void addCollection();
+        }
+      });
+      container
+        .querySelector("[data-desktop-collection-add]")
+        ?.addEventListener("click", () => void addCollection());
+      container.querySelectorAll("[data-desktop-collection-edit]").forEach((button) =>
+        button.addEventListener("click", () => {
+          const collection = state.collections[Number(button.dataset.desktopCollectionEdit)];
+          if (collection) void Router.navigate("collectionEdit", { collectionId: collection.id });
+        })
+      );
+      container
+        .querySelectorAll("[data-desktop-collection-delete]")
+        .forEach((button) =>
+          button.addEventListener(
+            "click",
+            () => void deleteCollection(Number(button.dataset.desktopCollectionDelete))
+          )
+        );
       bindDrag(container);
     }
   };

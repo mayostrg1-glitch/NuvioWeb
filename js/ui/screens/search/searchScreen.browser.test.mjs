@@ -16,9 +16,18 @@ async function loadSearchScreen() {
         setup(buildApi) {
           const mocks = new Map([
             ["router", `export const Router = { navigate: async () => {}, back: () => {} };`],
-            ["screen", `export const ScreenUtils = { show: (node) => { node.style.display = "block"; } }; export const ensureSpatialFocusVisible = () => {};`],
-            ["layout", `export const LayoutPreferences = { get: () => ({ modernSidebar: true }) }; export const shouldDrawCardLandscape = () => false;`],
-            ["sidebar", `export const getSidebarProfileState = async () => null; export const bindRootSidebarEvents = () => {}; export const renderRootSidebar = () => ""; export const activateLegacySidebarAction = () => {}; export const focusWithoutAutoScroll = () => {}; export const getRootSidebarNodes = () => []; export const getRootSidebarSelectedNode = () => null; export const isSelectedSidebarAction = () => false; export const isRootSidebarNode = () => false; export const setModernSidebarExpanded = () => {}; export const setModernSidebarPillIconOnly = () => {}; export const setLegacySidebarExpanded = () => {};`]
+            [
+              "screen",
+              `export const ScreenUtils = { show: (node) => { node.style.display = "block"; } }; export const ensureSpatialFocusVisible = () => {};`
+            ],
+            [
+              "layout",
+              `export const LayoutPreferences = { get: () => ({ modernSidebar: true }) }; export const shouldDrawCardLandscape = () => false;`
+            ],
+            [
+              "sidebar",
+              `export const getSidebarProfileState = async () => null; export const bindRootSidebarEvents = () => {}; export const renderRootSidebar = () => ""; export const activateLegacySidebarAction = () => {}; export const focusWithoutAutoScroll = () => {}; export const getRootSidebarNodes = () => []; export const getRootSidebarSelectedNode = () => null; export const isSelectedSidebarAction = () => false; export const isRootSidebarNode = () => false; export const setModernSidebarExpanded = () => {}; export const setModernSidebarPillIconOnly = () => {}; export const setLegacySidebarExpanded = () => {};`
+            ]
           ]);
           for (const [filter, path] of [
             [/router\.js$/, "router"],
@@ -35,7 +44,9 @@ async function loadSearchScreen() {
       }
     ]
   });
-  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`);
+  return import(
+    `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`
+  );
 }
 
 test("SearchScreen mounts in the browser without a Platform global", async () => {

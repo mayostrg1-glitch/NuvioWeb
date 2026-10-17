@@ -16,7 +16,9 @@ function resolveYoutubeId(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
-  const match = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/i);
+  const match = raw.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/i
+  );
   return match?.[1] || "";
 }
 
@@ -39,11 +41,10 @@ export async function resolveDesktopMediaPreviewMetadata(item) {
   const itemId = String(item?.id || "").trim();
   const itemType = String(item?.type || item?.apiType || "movie").trim() || "movie";
   if (!itemId) return null;
-  const result = await withTimeout(
-    metaRepository.getMetaFromAllAddons(itemType, itemId),
-    4000,
-    { status: "error", message: "timeout" }
-  ).catch(() => ({ status: "error" }));
+  const result = await withTimeout(metaRepository.getMetaFromAllAddons(itemType, itemId), 4000, {
+    status: "error",
+    message: "timeout"
+  }).catch(() => ({ status: "error" }));
   if (result?.status !== "success" || !result.data) return null;
   const meta = result.data;
   return {

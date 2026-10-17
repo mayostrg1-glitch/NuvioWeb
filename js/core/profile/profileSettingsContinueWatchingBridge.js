@@ -20,9 +20,7 @@ export function desktopContinueWatchingShowUnairedNextUp(payload) {
   if (!Object.prototype.hasOwnProperty.call(parsed || {}, "show_unaired_next_up")) {
     return null;
   }
-  return typeof parsed.show_unaired_next_up === "boolean"
-    ? parsed.show_unaired_next_up
-    : null;
+  return typeof parsed.show_unaired_next_up === "boolean" ? parsed.show_unaired_next_up : null;
 }
 
 export function patchDesktopContinueWatchingSettingsPayload(payload, showUnairedNextUp) {
