@@ -103,14 +103,86 @@ test("mobile Playback selector rows preserve full-width copy while toggles retai
   assert.doesNotMatch(desktopCss, /settings-playback-external-player-row\.settings-toggle-row/);
 });
 
-test("Back walks touch Settings from a section to the index before leaving it", async () => {
-  // The remote's handler took this step and the browser's did not, so Back
-  // inside a section fell through to the sidebar branch -- meaningless in a
-  // touch layout -- and returned true anyway, swallowing every Back.
+test("Back in browser Settings is the browser's own, one route at a time", async () => {
+  // Settings is two routes in the browser: the index, and the section opened
+  // from it. Back is a route pop, so the screen must not swallow it and must
+  // not close the section by hand any more.
   const source = await settingsScreenSource();
 
   assert.match(
     source,
-    /consumeBackRequest\(\)\s*\{[\s\S]*?if \(settingsUsesTouchNav\(\)\) \{\s*if \(this\.activeSection === null\) return false;\s*void this\.closeSectionToIndex\(\);\s*return true;\s*\}/
+    /consumeBackRequest\(\)\s*\{[\s\S]*?if \(settingsUsesRoutePages\(\)\) \{\s*return false;\s*\}/
   );
+  assert.doesNotMatch(source, /settingsUsesTouchNav/);
+  assert.doesNotMatch(source, /closeSectionToIndex/);
+  assert.match(source, /Router\.navigate\(SETTINGS_SECTION_ROUTE, \{ section: id \}\)/);
+});
+
+test("the section page carries the same floating back control as every other screen", async () => {
+  const source = await settingsScreenSource();
+  const desktopCss = await readFile(desktopCssUrl, "utf8");
+
+  // Painted by the shared rule that lists Detail, Stream, Player and the rest,
+  // and wired to the same thing the browser's Back does.
+  assert.match(source, /class="settings-section-back focusable"[\s\S]*?data-settings-back/);
+  assert.match(source, /closest\?\.\("\[data-settings-back\]"\)[\s\S]*?Router\.back\(\)/);
+  assert.match(desktopCss, /\.desktop-browser \.settings-shell \.settings-section-back/);
+});
+
+test("hovering a Settings row lights it without changing its box", async () => {
+  const desktopCss = await readFile(desktopCssUrl, "utf8");
+
+  // Every row on the index page is a settings-nav-item, the account card
+  // included; the rule is written for the page, not per group, or the account
+  // row has no hover at all. A hover border would resize a row under the
+  // pointer, so hover is a tint only.
+  const hoverRule = desktopCss.match(
+    /\.settings-shell\[data-settings-nav-mode="index"\][\s\S]{0,80}?\.settings-nav-item:hover \{([\s\S]*?)\}/
+  );
+
+  assert.ok(hoverRule, "the index rows need a hover rule of their own");
+  assert.match(hoverRule[1], /background: var\(--focus-bg\);/);
+  assert.match(hoverRule[1], /color: var\(--text-color\);/);
+  assert.doesNotMatch(hoverRule[1], /border|outline|font-weight|transform/);
+});
+
+test("each Settings route owns its own screen instance", async () => {
+  // The router suspends the page it navigates away from and restores it on
+  // Back. Two routes sharing one screen object meant the restored index was
+  // drawn into the section's container with the section's state: dead rows, a
+  // missing focus, and clicks that did nothing.
+  const source = await settingsScreenSource();
+  const routerSource = await readFile(
+    new URL("../../navigation/router.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    source,
+    /export const SettingsSectionScreen =\s*createScreenPrototype\(SettingsScreen\)/
+  );
+  assert.match(routerSource, /settingsSection: SettingsSectionScreen/);
+});
+
+test("each Settings container binds its own listeners, so both pages stay clickable", async () => {
+  // A "bound once" flag on the screen object marked the first page done and
+  // left the other without a click handler: every control there did nothing.
+  const source = await settingsScreenSource();
+
+  assert.match(source, /this\.container\.__settingsListeners/);
+  assert.match(source, /addEventListener\("click", listeners\.click\)/);
+  assert.doesNotMatch(source, /this\.handleClickBound/);
+  assert.doesNotMatch(source, /this\.handleWheelBound/);
+});
+
+test("the gap before Advanced belongs to its group, not to the row inside the card", async () => {
+  // Written on the row, the gap sat inside the group's card and left a band
+  // above the highlighted row instead of space between two groups.
+  const desktopCss = await readFile(desktopCssUrl, "utf8");
+
+  assert.match(
+    desktopCss,
+    /\.settings-nav-group:has\(\.settings-nav-item\[data-section="advanced"\]\) \{\s*margin-top: 14px;/
+  );
+  assert.doesNotMatch(desktopCss, /\.settings-nav-item\[data-section="advanced"\] \{\s*margin-top/);
 });

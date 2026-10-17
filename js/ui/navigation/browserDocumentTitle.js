@@ -10,6 +10,7 @@ const ROUTE_TITLES = {
   library: "Library",
   calendar: "Calendar",
   settings: "Settings",
+  settingsSection: "Settings",
   profileSelection: "Profiles",
   authSignIn: "Sign In",
   authQrSignIn: "Sign In",
