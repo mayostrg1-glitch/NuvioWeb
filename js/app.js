@@ -57,7 +57,13 @@ if (
   // Remembered before registering: a page that was already controlled is being
   // replaced by a newer worker, which is the only case worth reloading for.
   const hadServiceWorkerController = Boolean(globalThis.navigator.serviceWorker.controller);
-  globalThis.navigator.serviceWorker.register("./sw.js").catch(() => {});
+  // iOS Safari rarely re-checks sw.js (it can sit on a stale worker for ~24h),
+  // so an app update would never reach an installed PWA until the OS feels like
+  // it. Forcing registration.update() on every launch closes that gap.
+  globalThis.navigator.serviceWorker
+    .register("./sw.js")
+    .then((registration) => registration.update().catch(() => {}))
+    .catch(() => {});
   watchServiceWorkerTakeover(globalThis.navigator.serviceWorker, {
     hadController: hadServiceWorkerController,
     reload: () => globalThis.location.reload()

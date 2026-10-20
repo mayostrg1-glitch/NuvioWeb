@@ -109,3 +109,82 @@ body {
 *:focus {
   outline: none !important;
 }
+
+/* Screen transitions: the default cross-fade is a quick breath, not a slow
+   fade -- 180ms is long enough to read as motion, short enough to never
+   feel like waiting. */
+::view-transition-old(root) {
+  animation: nuvio-screen-out 180ms ease;
+}
+
+::view-transition-new(root) {
+  animation: nuvio-screen-in 180ms ease;
+}
+
+@keyframes nuvio-screen-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes nuvio-screen-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* Touch feedback: a pressed card yields under the finger -- the same
+   physical answer every native control gives. Applies to posters, rows,
+   and buttons across the app. Hover-capable pointers keep their own
+   treatment; this is for fingers. */
+.nuvio-pressable,
+.home-poster-card,
+.stream-route-card,
+.catalog-card,
+button.focusable,
+.nuvio-dialog-button,
+.settings-nav-item,
+.home-hero-card {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (hover: none) {
+  .home-poster-card:active .home-poster-frame,
+  .stream-route-card:active,
+  .catalog-card:active,
+  .nuvio-pressable:active,
+  button.focusable:active,
+  .nuvio-dialog-button:active,
+  .settings-nav-item:active {
+    transform: scale(0.96);
+    transition: transform 120ms ease;
+  }
+}
+
+/* The release needs the same spring back the press had, or the card snaps
+   back abruptly the instant the finger lifts. */
+@media (hover: none) {
+  .home-poster-frame,
+  .stream-route-card,
+  .catalog-card,
+  .nuvio-pressable,
+  button.focusable,
+  .nuvio-dialog-button,
+  .settings-nav-item {
+    transition: transform 220ms cubic-bezier(0.2, 0.8, 0.4, 1);
+  }
+}

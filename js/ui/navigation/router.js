@@ -637,6 +637,26 @@ export const Router = {
     childContainer.style.setProperty("overflow-y", "auto");
     childContainer.style.setProperty("overscroll-behavior", "contain");
     childContainer.style.setProperty("background", "var(--bg-color)");
+    // WebKit (iOS Safari / Chrome-iOS) intermittently skips painting a layer
+    // whose only change was position/z-index/overflow: the element reports
+    // visible in the DOM yet nothing is drawn. Promoting it to its own
+    // compositor layer forces the repaint -- but the transform must come off
+    // again right after, because a transformed ancestor turns every
+    // position:fixed descendant (the bottom nav bar) into a scrolling
+    // passenger of this container.
+    childContainer.style.setProperty("transform", "translateZ(0)");
+    childContainer.style.setProperty("-webkit-transform", "translateZ(0)");
+    childContainer.style.setProperty("backface-visibility", "hidden");
+    childContainer.style.setProperty("-webkit-backface-visibility", "hidden");
+    const raf = globalThis.requestAnimationFrame?.bind(globalThis) || ((cb) => setTimeout(cb, 16));
+    raf(() => {
+      raf(() => {
+        childContainer.style.removeProperty("transform");
+        childContainer.style.removeProperty("-webkit-transform");
+        childContainer.style.removeProperty("backface-visibility");
+        childContainer.style.removeProperty("-webkit-backface-visibility");
+      });
+    });
   },
 
   // Paint order must always match stack order. Depth alone is not enough: a
@@ -846,6 +866,64 @@ export const Router = {
   },
 
   async navigate(routeName, params = {}, options = {}) {
+    // Lightweight on-device navigation tracer: only active with ?debug=1 in the
+    // URL. Each step fires a beacon (a tiny image fetch) that lands in the Caddy
+    // access log, so a WebKit-only navigation failure can be diagnosed from the
+    // server without any remote console.
+    const dbgFlag = new URLSearchParams(globalThis.location?.search || "").get("debug");
+    if (dbgFlag !== null && dbgFlag !== "0" && dbgFlag !== "false") {
+      const beacon = (step, extra = "") => {
+        try {
+          const query = new URLSearchParams({
+            v: "1",
+            r: routeName,
+            s: step,
+            e: String(extra).slice(0, 120),
+            t: String(Date.now())
+          });
+          new Image().src = `/__dbg_nav?${query}`;
+        } catch {}
+      };
+      beacon("start", `from=${this.current}`);
+      try {
+        await this.__navigateInner(routeName, params, options);
+        // WebKit can report a successful mount while the screen is painted out
+        // of view or covered -- capture what the DOM actually looks like.
+        setTimeout(() => {
+          try {
+            const el = document.getElementById(routeName) || document.getElementById("settings");
+            const screen = this.current === routeName ? "ok" : `MISMATCH:${this.current}`;
+            let dom = "MISSING";
+            if (el) {
+              const cs = getComputedStyle(el);
+              const rect = el.getBoundingClientRect();
+              dom = [
+                "el",
+                `d=${cs.display}`,
+                `pos=${cs.position}`,
+                `z=${cs.zIndex}`,
+                `op=${cs.opacity}`,
+                `vis=${cs.visibility}`,
+                `anim=${cs.animationName}/${cs.animationPlayState}`,
+                `w=${Math.round(rect.width)}`,
+                `h=${Math.round(rect.height)}`,
+                `top=${Math.round(rect.top)}`,
+                `innerLen=${el.innerHTML.length}`
+              ].join(" ");
+            }
+            beacon("done", `screen=${screen} dom=${dom}`);
+          } catch {}
+        }, 400);
+      } catch (err) {
+        beacon("throw", (err && (err.stack || err.message)) || String(err));
+        throw err;
+      }
+      return;
+    }
+    return this.__navigateInner(routeName, params, options);
+  },
+
+  async __navigateInner(routeName, params = {}, options = {}) {
     const navigationStart = ROUTER_PERF_DEBUG ? routerPerfNow() : 0;
 
     const fromHistory = Boolean(options?.fromHistory);
@@ -980,7 +1058,63 @@ export const Router = {
       previousRoute
     });
 
-    await Screen.mount(this.currentParams, navigationContext);
+    const mountScreen = async () => {
+      await Screen.mount(this.currentParams, navigationContext);
+    };
+
+    // A screen change that cross-fades instead of snapping is the difference
+    // between a page that navigated and an app that moved. The player keeps
+    // its own handoff treatment -- snapshots freeze a playing video -- and
+    // reduced-motion users get the instant switch they asked for.
+    const prefersReducedMotion =
+      globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    // Once a browser reports an aborted/invalid-state transition, View Transitions
+    // are unreliable there (observed headless Chrome and iOS PWA). Flip this module
+    // flag once and every later navigation mounts directly -- a dead Settings screen
+    // is a much worse failure than losing a cross-fade.
+    const viewTransitionsBroken = Router.viewTransitionsBroken || false;
+    // iOS/WebKit (Safari and Chrome-iOS, which is WebKit under the hood) runs the
+    // cross-fade but intermittently never invokes the callback -- the animation
+    // plays over a screen that never changed, so every navigation looks dead.
+    // View Transitions there are not worth the risk: mount directly.
+    const isWebKit =
+      /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent) ||
+      /iP(hone|ad|od)/.test(navigator.platform || navigator.userAgent);
+    const useViewTransition =
+      !viewTransitionsBroken &&
+      !isWebKit &&
+      Platform.isBrowser() &&
+      routeName !== "player" &&
+      typeof document?.startViewTransition === "function" &&
+      !prefersReducedMotion;
+
+    if (useViewTransition) {
+      // A transition that fails before running its callback (aborted/invalid
+      // state, e.g. a still-active previous transition) must still mount the
+      // screen -- swallowing it here left the URL changed but the old screen
+      // showing (settings appeared dead). Run the mount, and only treat the
+      // transition itself as cosmetic.
+      let mounted = false;
+      const run = () => {
+        mounted = true;
+        return mountScreen();
+      };
+      try {
+        await document.startViewTransition(run).updateCallbackDone.catch(() => {
+          Router.viewTransitionsBroken = true;
+        });
+      } catch {
+        // startViewTransition itself threw: no transition ever ran.
+        Router.viewTransitionsBroken = true;
+      }
+      if (!mounted) {
+        // The callback was never invoked (transition aborted first): mount
+        // directly so navigation still completes.
+        await mountScreen();
+      }
+    } else {
+      await mountScreen();
+    }
     this.reassertTopLayerChrome(routeName);
     logRouterPerf("navigate", {
       ms: Number((routerPerfNow() - navigationStart).toFixed(2)),

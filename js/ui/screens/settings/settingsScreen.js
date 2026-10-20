@@ -9979,7 +9979,7 @@ export const SettingsScreen = {
       this.focusZone === "content" && (role === "toggle" || isSectionToggle);
     await action();
 
-    if (Router.getCurrent() === "settings") {
+    if (Router.getCurrent() === "settings" || Router.getCurrent() === "settingsSection") {
       await this.render({ refreshModel: !isSectionToggle });
       this.focusZone = "content";
       this.applyFocus();
