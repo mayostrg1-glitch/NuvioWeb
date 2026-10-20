@@ -6,6 +6,7 @@ import {
   SETTINGS_ROUTE,
   SETTINGS_SECTION_ROUTE
 } from "./settingsRoutes.js";
+import { resolveSettingsHeadingProgress } from "./settingsHeaderCollapse.js";
 import { APP_IDENTITY } from "../../../core/app/appIdentity.js";
 import { ensureSpatialFocusVisible, ScreenUtils } from "../../navigation/screen.js";
 import { addonRepository } from "../../../data/repository/addonRepository.js";
@@ -30,7 +31,7 @@ import {
   describeHeroArtworkCache
 } from "../../../data/local/heroArtworkCache.js";
 import {
-  normalizeBrowserNavigationPlacement,
+  normalizeBrowserNavigationStyle,
   normalizeBrowserNavigationRailCorner,
   normalizeCatalogCardOrientation,
   LayoutPreferences
@@ -129,7 +130,8 @@ import {
 } from "../../components/sidebarNavigation.js";
 import {
   bindDesktopNavigationEvents,
-  renderDesktopNavigation
+  renderDesktopNavigation,
+  renderNavigationRevealButton
 } from "../../components/desktopNavigation.js";
 import { createDesktopAddonManager } from "../../components/desktopAddonManager.js";
 import { createDesktopPluginManager } from "../../components/desktopPluginManager.js";
@@ -754,20 +756,23 @@ function renderCardOrientationPreviewMarkup(orientationId) {
   return `<span class="settings-orientation-stage">${wide(1)}${tall(2)}</span>`;
 }
 
-const BROWSER_NAV_PLACEMENT_OPTIONS = [
+// Two shapes, not three positions. Where the floating bar sits is decided by the
+// layout -- bottom on a phone, top on a desktop -- so offering it as a choice
+// only created a setting that could disagree with the device it ran on.
+const BROWSER_NAV_STYLE_OPTIONS = [
   {
     id: "top",
-    labelKey: "settings_nav_placement_top",
-    label: "Floating top"
+    labelKey: "settings_nav_style_top",
+    label: "Top bar"
   },
   {
     id: "bottom",
-    labelKey: "settings_nav_placement_bottom",
+    labelKey: "settings_nav_style_bottom",
     label: "Bottom bar"
   },
   {
-    id: "sidebar",
-    labelKey: "settings_nav_placement_sidebar",
+    id: "rail",
+    labelKey: "settings_nav_style_rail",
     label: "Side rail"
   }
 ];
@@ -1253,9 +1258,9 @@ function maskValue(value, fallback) {
     return fallback;
   }
   if (trimmed.length <= 4) {
-    return "••••";
+    return "â€¢â€¢â€¢â€¢";
   }
-  return `••••••${trimmed.slice(-4)}`;
+  return `â€¢â€¢â€¢â€¢â€¢â€¢${trimmed.slice(-4)}`;
 }
 
 function labelForFont(fontFamily) {
@@ -2111,6 +2116,15 @@ function settingsUsesRoutePages() {
   return Platform.isBrowser();
 }
 
+// Which of the two Settings routes is on display, if either. Async work that
+// redraws "the Settings screen" has to ask this rather than compare against
+// `settings` alone: the section page is a route of its own now, and a redraw
+// that never happens looks exactly like a control that does nothing.
+function isSettingsPageCurrent() {
+  const route = Router.getCurrent?.();
+  return route === SETTINGS_ROUTE || route === SETTINGS_SECTION_ROUTE;
+}
+
 function updateSettingsMarqueeTargets(root) {
   root?.querySelectorAll?.(".settings-nav-label").forEach((label) => {
     label._settingsMarqueeAnimation?.cancel?.();
@@ -2330,7 +2344,7 @@ function createDefaultExpandedState(sectionId) {
   if (sectionId === "layout") {
     return {
       homeLayout: false,
-      navPlacement: false,
+      navStyle: false,
       homeContent: false,
       homeCatalogs: false,
       continueWatching: false,
@@ -2561,7 +2575,7 @@ export const SettingsScreen = {
     this.model = initialModel;
     if (Platform.isBrowser()) {
       void TraktAuthService.refreshBrowserBridgeAvailability().then(() => {
-        if (this.container && Router.getCurrent() === "settings") {
+        if (this.container && isSettingsPageCurrent()) {
           void this.render();
         }
       });
@@ -2569,16 +2583,105 @@ export const SettingsScreen = {
     if (Platform.isBrowser()) {
       this.offlineDownloadsUnsubscribe?.();
       this.offlineDownloadsUnsubscribe = subscribeToOfflineDownloads(() => {
-        if (
-          this.container &&
-          Router.getCurrent() === "settings" &&
-          this.activeSection === "downloads"
-        ) {
+        if (this.container && isSettingsPageCurrent() && this.activeSection === "downloads") {
           void this.render();
         }
       });
     }
     await this.render({ refreshModel: false });
+    // After the heading exists: a page restored by Back is already scrolled, so
+    // its heading has to be in the right state on the first frame.
+    this.bindHeaderCollapse();
+  },
+
+  /**
+   * Collapses the page heading once the page has scrolled past its threshold.
+   *
+   * A passive scroll listener with one `requestAnimationFrame` per burst: the
+   * heading is a class on the shell, and the animation is the stylesheet's. The
+   * listener belongs to this mount, so it is removed by `unbindHeaderCollapse`.
+   */
+  bindHeaderCollapse() {
+    this.unbindHeaderCollapse();
+    if (!settingsUsesRoutePages()) {
+      return;
+    }
+    let frame = 0;
+
+    // The page scrolls inside its own screen element in this layout, not the
+    // document, so the position is read from whichever of the two is actually
+    // scrolling. Scroll events do not bubble, but they are delivered in the
+    // capture phase, which is why the listener sits on the document.
+    const readScrollTop = () => {
+      const container = this.container;
+      if (container && container.scrollHeight > container.clientHeight + 1) {
+        return Number(container.scrollTop || 0);
+      }
+      const document = globalThis.document;
+      return Number(document?.scrollingElement?.scrollTop ?? globalThis.scrollY ?? 0);
+    };
+
+    const apply = () => {
+      frame = 0;
+      const shell = this.container?.querySelector(".settings-shell");
+      if (!shell) {
+        return;
+      }
+      // The wide layout keeps its heading in the page, so there is nothing to
+      // collapse: the title is not a bar there, and shrinking it while it scrolls
+      // away would only make the page twitch. Phones keep the sticky bar.
+      // Which layout this is comes from the shell's own attribute, not from the
+      // width: a tablet can be running the wide layout at a width a phone would
+      // call narrow.
+      const layout = String(globalThis?.document?.documentElement?.dataset?.layout || "");
+      const wideLayout = layout
+        ? layout === "desktop"
+        : typeof globalThis.matchMedia === "function" &&
+          globalThis.matchMedia("(min-width: 601px)").matches;
+      if (wideLayout) {
+        shell.style.setProperty("--settings-heading-progress", "0");
+        if (shell.dataset.settingsHeaderCollapsed !== "false") {
+          shell.dataset.settingsHeaderCollapsed = "false";
+        }
+        return;
+      }
+      const progress = resolveSettingsHeadingProgress(readScrollTop());
+      shell.style.setProperty("--settings-heading-progress", progress.toFixed(4));
+      const next = progress >= 0.999 ? "true" : "false";
+      if (shell.dataset.settingsHeaderCollapsed !== next) {
+        shell.dataset.settingsHeaderCollapsed = next;
+      }
+    };
+
+    const onScroll = () => {
+      if (frame) {
+        return;
+      }
+      const request = globalThis.requestAnimationFrame?.(apply);
+      if (request) {
+        frame = request;
+        return;
+      }
+      apply();
+    };
+
+    this.headerCollapseCleanup = () => {
+      globalThis.document?.removeEventListener?.("scroll", onScroll, true);
+      if (frame) {
+        globalThis.cancelAnimationFrame?.(frame);
+        frame = 0;
+      }
+    };
+    globalThis.document?.addEventListener?.("scroll", onScroll, {
+      capture: true,
+      passive: true
+    });
+    apply();
+  },
+
+  unbindHeaderCollapse() {
+    this.headerCollapseCleanup?.();
+    this.headerCollapseCleanup = null;
   },
 
   ensureExpandedState(sectionId) {
@@ -2743,6 +2846,7 @@ export const SettingsScreen = {
     // rail beside the content is not, and each section's own header titles
     // it there.
     const showsIndex = settingsUsesRoutePages() && this.activeSection === null;
+    const showRailReveal = showsIndex && Platform.isBrowser();
     const order = new Map(this.visibleSections.map((item, index) => [item.id, index]));
     if (!showsIndex) {
       // The rail reads as one long list of twelve otherwise. It gets the same
@@ -2766,6 +2870,7 @@ export const SettingsScreen = {
     return `
       <header class="settings-nav-index-header">
         <h1 class="settings-title">${escapeHtml(t("nav.settings", {}, "Settings"))}</h1>
+        ${showRailReveal ? renderNavigationRevealButton() : ""}
       </header>
       ${this.renderAccountNavCard(order)}
       ${grouped}
@@ -2902,9 +3007,9 @@ export const SettingsScreen = {
 
   renderSectionHeader(section) {
     const copy = translateSectionCopy(section);
-    // The section page is a route, so this control pops that route. Placed and
-    // painted like every other back control in the browser build: floating on
-    // the navigation's own line, not in the header flow.
+    // The section page is a route, so this control pops that route. It lives
+    // inside the heading so that on a wide screen it can sit in the bar, on the
+    // title's own line; on a phone it is pinned to the bar's edge instead.
     const back = Platform.isBrowser()
       ? `
       <button class="settings-section-back focusable" type="button" data-settings-back
@@ -2914,10 +3019,12 @@ export const SettingsScreen = {
     `
       : "";
     return `
-      ${back}
       <header class="settings-content-header">
-        <h1 class="settings-title">${escapeHtml(copy.label)}</h1>
-        <p class="settings-subtitle">${escapeHtml(copy.subtitle)}</p>
+        ${back}
+        <div class="settings-header-copy">
+          <h1 class="settings-title">${escapeHtml(copy.label)}</h1>
+          <p class="settings-subtitle">${escapeHtml(copy.subtitle)}</p>
+        </div>
       </header>
     `;
   },
@@ -3476,7 +3583,7 @@ export const SettingsScreen = {
     }
     if (state.status === "starting") {
       return `<div class="settings-debrid-auth-loading">${renderLoadingIndicator({ size: "small" })}<span>${escapeHtml(
-        t("debrid_device_auth_starting", {}, `Starting ${state.provider.displayName} sign-in…`)
+        t("debrid_device_auth_starting", {}, `Starting ${state.provider.displayName} sign-inâ€¦`)
       )}</span></div>`;
     }
     if (state.status === "waiting" && state.session) {
@@ -3506,7 +3613,7 @@ export const SettingsScreen = {
             )}</button>
           </div>
           <div class="settings-debrid-auth-status">${renderLoadingIndicator({ size: "small" })}<span>${escapeHtml(
-            t("debrid_device_auth_waiting", {}, "Waiting for authorization…")
+            t("debrid_device_auth_waiting", {}, "Waiting for authorizationâ€¦")
           )}</span></div>
         </div>`;
     }
@@ -4139,7 +4246,7 @@ export const SettingsScreen = {
         ? t(
             "advanced_clear_artwork_cache_subtitle",
             { count: entries, size: kilobytes },
-            `Remembered artwork for ${entries} titles · ${kilobytes} KB`
+            `Remembered artwork for ${entries} titles Â· ${kilobytes} KB`
           )
         : t("advanced_clear_artwork_cache_empty", {}, "Nothing remembered yet");
     return this.renderActionRow({
@@ -4304,8 +4411,8 @@ export const SettingsScreen = {
     this.actionMap.set("layout:toggle:homeLayout", () => {
       this.toggleExpandedSection("layout", "homeLayout");
     });
-    this.actionMap.set("layout:toggle:navPlacement", () => {
-      this.toggleExpandedSection("layout", "navPlacement");
+    this.actionMap.set("layout:toggle:navStyle", () => {
+      this.toggleExpandedSection("layout", "navStyle");
     });
     this.actionMap.set("layout:toggle:homeContent", () => {
       this.toggleExpandedSection("layout", "homeContent");
@@ -4335,9 +4442,9 @@ export const SettingsScreen = {
       });
     });
 
-    BROWSER_NAV_PLACEMENT_OPTIONS.forEach((option) => {
-      this.actionMap.set(`layout:navPlacement:${option.id}`, () => {
-        LayoutPreferences.set({ browserNavigationPlacement: option.id });
+    BROWSER_NAV_STYLE_OPTIONS.forEach((option) => {
+      this.actionMap.set(`layout:navStyle:${option.id}`, () => {
+        LayoutPreferences.set({ browserNavigationStyle: option.id });
       });
     });
 
@@ -4408,7 +4515,7 @@ export const SettingsScreen = {
           }
           const details = catalogDetails.get(key);
           const label = catalogSettings.customTitles?.[key] || details?.label || key;
-          const secondary = [details?.typeLabel, details?.addonName].filter(Boolean).join(" · ");
+          const secondary = [details?.typeLabel, details?.addonName].filter(Boolean).join(" Â· ");
           return {
             id: key,
             label,
@@ -4675,9 +4782,16 @@ export const SettingsScreen = {
           ? t("settings.layout.continueWatchingSort.streamingStyle", {}, "Streaming Style")
           : t("settings.layout.continueWatchingSort.default", {}, "Default");
 
-    const selectedNavPlacement = normalizeBrowserNavigationPlacement(
-      model.layout.browserNavigationPlacement
-    );
+    const wideDevice =
+      String(globalThis?.document?.documentElement?.dataset?.device || "") === "desktop";
+    const navStyleOptions = wideDevice
+      ? BROWSER_NAV_STYLE_OPTIONS.filter((option) => option.id !== "bottom")
+      : BROWSER_NAV_STYLE_OPTIONS;
+    const selectedNavStyle =
+      normalizeBrowserNavigationStyle(
+        model.layout.browserNavigationStyle,
+        model.layout.browserNavigationPlacement
+      ) || (wideDevice ? "top" : "bottom");
     // Browser only: the television has its own navigation and none of these
     // three describe it.
     const selectedCardOrientation = normalizeCatalogCardOrientation(
@@ -4712,7 +4826,7 @@ export const SettingsScreen = {
     // Only the rail has a corner to choose, so the choice only appears once
     // the rail is the placement in force.
     const navRailCornerBody =
-      isDesktopBrowser && selectedNavPlacement === "sidebar"
+      isDesktopBrowser && selectedNavStyle === "rail"
         ? `
         <div class="settings-group-card settings-subsection-card">
           <div class="settings-stack">
@@ -4734,18 +4848,22 @@ export const SettingsScreen = {
         </div>`
         : "";
 
-    const navPlacementBody = isDesktopBrowser
+    const navStyleBody = isDesktopBrowser
       ? `
         <div class="settings-stack">
           <div class="settings-layout-grid settings-nav-placement-grid">
-            ${BROWSER_NAV_PLACEMENT_OPTIONS.map((option) =>
-              this.renderNavPlacementCard(
-                option,
-                selectedNavPlacement === option.id,
-                `layout:navPlacement:${option.id}`,
-                renderNavPlacementPreviewMarkup(option.id, selectedNavRailCorner)
+            ${navStyleOptions
+              .map((option) =>
+                this.renderNavPlacementCard(
+                  option,
+                  selectedNavStyle === option.id,
+                  `layout:navStyle:${option.id}`,
+                  option.id === "rail"
+                    ? renderNavPlacementPreviewMarkup("sidebar", selectedNavRailCorner)
+                    : renderNavPlacementPreviewMarkup(option.id)
+                )
               )
-            ).join("")}
+              .join("")}
           </div>
           ${navRailCornerBody}
         </div>`
@@ -5168,15 +5286,15 @@ export const SettingsScreen = {
       <div class="settings-group-card settings-group-card-fill">
         <div class="settings-stack">
           ${this.renderCollapsibleRow({
-            focusKey: "layout:toggle:navPlacement",
+            focusKey: "layout:toggle:navStyle",
             title: t("settings_nav_placement_title", {}, "Navigation"),
             subtitle: t(
               "settings_nav_placement_subtitle",
               {},
               "Where the navigation sits. The side rail stays hidden until you press the floating button."
             ),
-            expanded: Boolean(expanded.navPlacement),
-            bodyHtml: navPlacementBody
+            expanded: Boolean(expanded.navStyle),
+            bodyHtml: navStyleBody
           })}
           ${this.renderCollapsibleRow({
             focusKey: "layout:toggle:homeContent",
@@ -8101,11 +8219,7 @@ export const SettingsScreen = {
     this.stopTraktPolling();
     const poll = async () => {
       const state = TraktAuthService.getCurrentAuthState();
-      if (
-        !state.deviceCode ||
-        Router.getCurrent() !== "settings" ||
-        this.activeSection !== "trakt"
-      ) {
+      if (!state.deviceCode || !isSettingsPageCurrent() || this.activeSection !== "trakt") {
         this.stopTraktPolling();
         return;
       }
@@ -8495,7 +8609,7 @@ export const SettingsScreen = {
     if (this.desktopSimklPollTimer) return;
     const poll = async () => {
       const auth = SimklAuthService.getCurrentAuthState();
-      if (!auth.userCode || Router.getCurrent() !== "settings" || this.activeSection !== "trakt") {
+      if (!auth.userCode || !isSettingsPageCurrent() || this.activeSection !== "trakt") {
         this.stopDesktopSimklPolling();
         return;
       }
@@ -8549,11 +8663,7 @@ export const SettingsScreen = {
     if (this.desktopTraktPollTimer) return;
     const poll = async () => {
       const auth = TraktAuthService.getCurrentAuthState();
-      if (
-        !auth.deviceCode ||
-        Router.getCurrent() !== "settings" ||
-        this.activeSection !== "trakt"
-      ) {
+      if (!auth.deviceCode || !isSettingsPageCurrent() || this.activeSection !== "trakt") {
         this.stopDesktopTraktPolling();
         return;
       }
@@ -8917,7 +9027,7 @@ export const SettingsScreen = {
       state.loaded = true;
     } finally {
       state.loading = false;
-      if (Router.getCurrent() === "settings") {
+      if (isSettingsPageCurrent()) {
         await this.render({ refreshModel: false });
       }
     }
@@ -8929,7 +9039,7 @@ export const SettingsScreen = {
       return "";
     }
     if (state.loading) {
-      return `<section class="settings-about-community-group"><h3>${escapeHtml(title)}</h3><p class="settings-about-inline-status">Loading…</p></section>`;
+      return `<section class="settings-about-community-group"><h3>${escapeHtml(title)}</h3><p class="settings-about-inline-status">Loadingâ€¦</p></section>`;
     }
     if (kind === "contributors" && (state.error === "fallback" || !state.items?.length)) {
       const fallbackKey = "about:contributors:github";
@@ -9019,7 +9129,7 @@ export const SettingsScreen = {
       this.actionMap.set("about:licenses", () => Router.navigate("licensesAttributions"));
     }
     this.actionMap.set("about:checkUpdates", async () => {
-      this.aboutUpdateStatus = t("update_checking", {}, "Checking for updates…");
+      this.aboutUpdateStatus = t("update_checking", {}, "Checking for updatesâ€¦");
       await this.render({ refreshModel: false });
       try {
         const update = await getLatestAppUpdate({ currentVersion: CURRENT_APP_VERSION });
@@ -9206,7 +9316,7 @@ export const SettingsScreen = {
           focusKey: "downloads:syncOfflineProgress",
           title: "Sync offline progress (experimental)",
           subtitle:
-            "Experimental, and still has plenty of bugs. Off: watching a download records nothing at all — not your position, not that you finished it, and nothing reaches your account or tracking service. On: a download is treated like any other playback, and two devices can disagree about which position is newer. A tracking service is sent the position but not when you watched it, so an offline session arrives at Trakt or Simkl stamped with the time it got there; a finished title does carry its real time.",
+            "Experimental, and still has plenty of bugs. Off: watching a download records nothing at all â€” not your position, not that you finished it, and nothing reaches your account or tracking service. On: a download is treated like any other playback, and two devices can disagree about which position is newer. A tracking service is sent the position but not when you watched it, so an offline session arrives at Trakt or Simkl stamped with the time it got there; a finished title does carry its real time.",
           checked: Boolean(model.player?.syncOfflineProgress)
         })}
       </div></div>
@@ -9222,12 +9332,12 @@ export const SettingsScreen = {
       </div></div>
       <div class="settings-group-heading"><div class="settings-group-title">Library</div></div>
       <div class="settings-group-card"><div class="settings-stack settings-download-summary">
-        ${this.renderActionRow({ focusKey: "downloads:library", title: "Downloaded library", value: `${downloads.movies} Movies · ${downloads.series} Series · ${downloads.episodes} Episodes`, icon: null, disabled: true })}
+        ${this.renderActionRow({ focusKey: "downloads:library", title: "Downloaded library", value: `${downloads.movies} Movies Â· ${downloads.series} Series Â· ${downloads.episodes} Episodes`, icon: null, disabled: true })}
         ${this.renderActionRow({ focusKey: "downloads:subtitleCount", title: "Local subtitles", value: String(downloads.subtitles), icon: null, disabled: true })}
       </div></div>
       <div class="settings-group-heading"><div class="settings-group-title">Queue</div></div>
       <div class="settings-group-card"><div class="settings-stack settings-download-summary">
-        ${this.renderActionRow({ focusKey: "downloads:queue", title: "Download queue", value: `${count("downloading")} Downloading · ${count("queued")} Queued · ${count("paused") + count("interrupted")} Paused · ${count("failed")} Failed`, icon: null, disabled: true })}
+        ${this.renderActionRow({ focusKey: "downloads:queue", title: "Download queue", value: `${count("downloading")} Downloading Â· ${count("queued")} Queued Â· ${count("paused") + count("interrupted")} Paused Â· ${count("failed")} Failed`, icon: null, disabled: true })}
         ${this.renderActionRow({ focusKey: "downloads:manage", title: "Manage Downloads", subtitle: queueTotal ? "Open the Library Download Manager." : "No active downloads. Open Downloaded.", leadingIcon: "download" })}
       </div></div>
       <div class="settings-group-heading"><div class="settings-group-title">Cleanup</div></div>
@@ -9349,6 +9459,9 @@ export const SettingsScreen = {
     const dialogSlot = this.container.querySelector("[data-settings-dialog]");
 
     const isDesktopBrowser = Platform.isBrowser();
+    // The index gets a second trigger inside its heading for the top-right
+    // corner. The root slot keeps its own so the bottom corners never live
+    // inside a heading whose glass would become their containing block.
     const rootSidebarHtml = isDesktopBrowser
       ? renderDesktopNavigation({
           selectedRoute: "settings",
@@ -9979,7 +10092,12 @@ export const SettingsScreen = {
       this.focusZone === "content" && (role === "toggle" || isSectionToggle);
     await action();
 
-    if (Router.getCurrent() === "settings" || Router.getCurrent() === "settingsSection") {
+    // The page is redrawn by whichever of the two routes owns this screen. It
+    // used to ask only for `settings`, so on the section page an action ran and
+    // nothing was ever drawn from it: a row that looked dead because the state
+    // it changed was never rendered.
+    const currentRoute = Router.getCurrent?.();
+    if (currentRoute === SETTINGS_ROUTE || currentRoute === SETTINGS_SECTION_ROUTE) {
       await this.render({ refreshModel: !isSectionToggle });
       this.focusZone = "content";
       this.applyFocus();
@@ -10237,6 +10355,7 @@ export const SettingsScreen = {
 
   cleanup() {
     this.persistUiState();
+    this.unbindHeaderCollapse();
     this.offlineDownloadsUnsubscribe?.();
     this.offlineDownloadsUnsubscribe = null;
     this.browserHorizontalTabScrollCleanup?.();

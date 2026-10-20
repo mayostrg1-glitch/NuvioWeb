@@ -33,9 +33,11 @@ import {
   renderTitleWatchedBadge
 } from "../../components/watchedTitleBadge.js";
 import { renderLoadingIndicator } from "../../components/loadingIndicator.js";
+import { bindPageHeadingCollapse } from "../../components/pageHeadingCollapse.js";
 import {
   bindDesktopNavigationEvents,
-  renderDesktopNavigation
+  renderDesktopNavigation,
+  renderNavigationRevealButton
 } from "../../components/desktopNavigation.js";
 import { bindBrowserCardTouchIntent } from "../../components/browserCardTouchIntent.js";
 import { bindMediaContextMenu } from "../../components/mediaContextActions.js";
@@ -1288,7 +1290,7 @@ export const FolderDetailScreen = {
     }
     this.boundDesktopCollectionClickHandler = async (event) => {
       const target = event?.target?.closest?.(
-        ".folder-detail-desktop-back, .folder-detail-tab, .seeall-card[data-action='openDetail']," +
+        ".folder-detail-desktop-back, .folder-detail-mobile-back, .folder-detail-tab, .seeall-card[data-action='openDetail']," +
           " [data-action='toggleTabPicker'], [data-action='selectTabOption']"
       );
       // A press that lands on none of them still has to be able to shut an open
@@ -1301,7 +1303,10 @@ export const FolderDetailScreen = {
         return;
       }
       event.preventDefault?.();
-      if (target.classList.contains("folder-detail-desktop-back")) {
+      if (
+        target.classList.contains("folder-detail-desktop-back") ||
+        target.classList.contains("folder-detail-mobile-back")
+      ) {
         this.prepareHomeReturnAnimation();
         await Router.back();
         return;
@@ -1714,6 +1719,24 @@ export const FolderDetailScreen = {
 
     const desktopHeaderMeta = this.getDesktopHeaderMetadata();
     const desktopHeaderLogo = String(this.folder?.titleLogoUrl || "").trim();
+    const mobileFolderTitle = String(this.folder?.title || "Folder").trim();
+    const mobileFolderLogo = String(this.folder?.titleLogoUrl || "").trim();
+    const mobileTabsMarkup =
+      this.viewMode === "TABBED_GRID" && this.tabs.length > 1
+        ? `<div class="folder-detail-mobile-tabs">
+            ${this.tabs
+              .map(
+                (tab, index) => `
+              <button type="button"
+                      class="folder-detail-tab folder-detail-mobile-tab focusable${index === this.selectedTabIndex ? " is-selected" : ""}"
+                      data-action="selectTab"
+                      data-tab-index="${index}"
+                      data-focus-key="mobile-tab:${index}">${escapeHtml(tab.label || "Tab")}</button>
+            `
+              )
+              .join("")}
+          </div>`
+        : "";
     this.container.innerHTML =
       this.viewMode === "TABBED_GRID" || this.isDesktopBrowser
         ? `
@@ -1724,6 +1747,24 @@ export const FolderDetailScreen = {
           }
           ${this.isDesktopBrowser ? '<div class="folder-detail-desktop-ambient" aria-hidden="true"></div>' : ""}
           <div class="seeall-shell folder-detail-shell${this.isDesktopBrowser ? " desktop-folder-detail-shell" : ""}${enterClass}">
+          ${
+            this.isDesktopBrowser
+              ? `<header class="folder-detail-mobile-heading" data-page-heading>
+                   <button class="folder-detail-mobile-back" type="button" data-action="back" aria-label="Back">
+                     <span class="material-icons" aria-hidden="true">chevron_left</span>
+                   </button>
+                   <div class="folder-detail-mobile-brand">
+                     ${
+                       mobileFolderLogo
+                         ? `<img class="folder-detail-mobile-logo" src="${escapeHtml(mobileFolderLogo)}" alt="${escapeHtml(mobileFolderTitle)}" />`
+                         : `<h1 class="folder-detail-mobile-title">${escapeHtml(mobileFolderTitle)}</h1>`
+                     }
+                   </div>
+                   ${renderNavigationRevealButton()}
+                 </header>
+                 ${mobileTabsMarkup}`
+              : ""
+          }
           <header class="seeall-header folder-detail-header">
             ${
               this.isDesktopBrowser
@@ -1803,6 +1844,11 @@ export const FolderDetailScreen = {
         </div>
       `;
 
+    this.folderHeadingCleanup?.();
+    this.folderHeadingCleanup = null;
+    if (this.isDesktopBrowser) {
+      this.folderHeadingCleanup = bindPageHeadingCollapse({ container: this.container });
+    }
     ScreenUtils.indexFocusables(this.container);
     if (this.isDesktopBrowser) {
       bindDesktopNavigationEvents(this.container);
@@ -2400,6 +2446,8 @@ export const FolderDetailScreen = {
   },
 
   cleanup() {
+    this.folderHeadingCleanup?.();
+    this.folderHeadingCleanup = null;
     this.browserCardTouchIntentCleanup?.();
     this.browserCardTouchIntentCleanup = null;
     this.mediaContextMenuCleanup?.();

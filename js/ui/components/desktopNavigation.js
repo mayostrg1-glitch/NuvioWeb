@@ -76,7 +76,7 @@ function renderProfile(profile, selectedRoute) {
 // The other two placements keep the bar on screen, so CSS hides this.
 // Both marks are drawn and CSS shows whichever one is true, so the button
 // never has to be rebuilt to change what it says.
-function renderNavigationRevealButton() {
+export function renderNavigationRevealButton() {
   const label = t("nav_open_menu", "Open menu");
   return `
     <button class="desktop-navigation-reveal"

@@ -636,7 +636,10 @@ export const Router = {
     childContainer.style.setProperty("z-index", String(1000 + depth));
     childContainer.style.setProperty("overflow-y", "auto");
     childContainer.style.setProperty("overscroll-behavior", "contain");
-    childContainer.style.setProperty("background", "var(--bg-color)");
+    // The layer covers the whole viewport, so its own backdrop is what shows in any
+    // strip the page content does not fill -- the black band seen under a short
+    // list. It has to be the same tint as the app canvas, not the bare background.
+    childContainer.style.setProperty("background", "var(--app-canvas-color, var(--bg-color))");
     // WebKit (iOS Safari / Chrome-iOS) intermittently skips painting a layer
     // whose only change was position/z-index/overflow: the element reports
     // visible in the DOM yet nothing is drawn. Promoting it to its own
@@ -1197,10 +1200,28 @@ export const Router = {
       return;
     }
 
-    await this.back({ skipConsume: true, skipHistory: true });
+    await this.back({
+      skipConsume: true,
+      skipHistory: true,
+      skipPendingHistoryCheck: true
+    });
   },
 
   async back(options = {}) {
+    // A forward navigation commits its browser entry only after the screen has
+    // finished mounting. A Back during that window still sees the caller's
+    // history state, so history.back() would skip the caller and land on an
+    // older page. Resolve against the entry that is actually committed.
+    const committedHistoryRoute = String(window?.history?.state?.route || "");
+    if (
+      !options?.skipPendingHistoryCheck &&
+      committedHistoryRoute &&
+      committedHistoryRoute !== this.current
+    ) {
+      await this.backFromPendingNavigation();
+      return;
+    }
+
     const currentScreen = this.getCurrentScreen();
     const consumeResult = !options?.skipConsume
       ? currentScreen?.consumeBackRequest?.({
