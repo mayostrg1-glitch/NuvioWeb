@@ -165,6 +165,7 @@ export async function createPlaybackBridge({
         return;
       }
       session.readers.add(upstream);
+      upstream.on("data", (chunk) => (session.bytesRead = (session.bytesRead || 0) + chunk.length));
       res.on("close", () => {
         upstream.destroy();
         session.readers.delete(upstream);
@@ -204,8 +205,12 @@ export async function createPlaybackBridge({
     const child = spawn(executable, args, { stdio: ["ignore", "pipe", "pipe"] });
     session.processes.add(child);
     child.once("close", () => session.processes.delete(child));
-    // Never log FFmpeg output: upstream URLs and tokens may occur in diagnostics.
-    child.stderr.resume();
+    // Never log raw FFmpeg output: upstream URLs and tokens may occur in
+    // diagnostics. Keep a short tail with every URL removed for failures.
+    child.stderrTail = "";
+    child.stderr.on("data", (chunk) => {
+      child.stderrTail = (child.stderrTail + chunk).slice(-600);
+    });
     return child;
   }
 
@@ -353,12 +358,14 @@ export async function createPlaybackBridge({
     child.once("close", (code) => {
       if (code !== 0 && session.encoder === child) session.encoderError = true;
     });
+    session.bytesRead = 0;
+    let bufferedSeconds = 0;
     const deadline = Date.now() + 30000;
     while (Date.now() < deadline && !session.stopped && !session.encoderError) {
       try {
         const manifest = await readFile(join(directory, "index.m3u8"), "utf8");
         // Short first segments after a seek do not provide a useful head start.
-        const bufferedSeconds = [...manifest.matchAll(/^#EXTINF:([\d.]+)/gm)].reduce(
+        bufferedSeconds = [...manifest.matchAll(/^#EXTINF:([\d.]+)/gm)].reduce(
           (total, match) => total + Number(match[1]),
           0
         );
@@ -395,6 +402,17 @@ export async function createPlaybackBridge({
       }
       await pause(250);
     }
+    if (!session.stopped)
+      console.warn("[playback] start failed", {
+        reason: session.encoderError ? "encoder-exit" : "timeout",
+        exitCode: child.exitCode,
+        elapsedMs: Date.now() - startedAt,
+        bufferedSeconds,
+        sourceMB: Math.round(session.bytesRead / 1e5) / 10,
+        videoCodec: session.videoCodec,
+        position,
+        stderr: child.stderrTail.replace(/[a-z][\w+.-]*:\/\/\S+/gi, "<url>").trim()
+      });
     throw (
       session.sourceError ||
       failure(422, "This source could not start in compatibility mode. Try another source.")
