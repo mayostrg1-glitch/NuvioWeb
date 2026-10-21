@@ -4056,12 +4056,15 @@ export const PlayerScreen = {
         }
       };
 
+      // With hls.js/dash.js attached, currentSrc is the MediaSource's blob: URL.
+      // It can never be fetched as a manifest -- every attempt was a failed
+      // request (twice, with and without headers) logged as an error.
       const urlCandidates = uniqueNonEmptyValues([
         masterUrl,
         runtimeUrl,
         playbackUrl,
         this.activePlaybackUrl
-      ]);
+      ]).filter((candidate) => !/^(blob|data):/i.test(String(candidate)));
       let selectedParsed = null;
       let selectedMasterUrl = masterUrl;
 
