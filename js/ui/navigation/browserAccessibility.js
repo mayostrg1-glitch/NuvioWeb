@@ -338,7 +338,10 @@ export function handleBrowserControlKey(event, screen) {
     return true;
   }
   // Player shortcuts apply to its playback surface, not a chooser or toolbar.
-  if (dialog || target.closest("#playerControlButtons, .player-desktop-playback-tools"))
-    return event.key !== "Escape";
+  // Clicking a toolbar button leaves focus on it, so letter shortcuts (M, F)
+  // still reach the player there; the keys above keep driving the toolbar.
+  if (dialog) return event.key !== "Escape";
+  if (target.closest("#playerControlButtons, .player-desktop-playback-tools"))
+    return event.key !== "Escape" && event.key.length !== 1;
   return false;
 }
