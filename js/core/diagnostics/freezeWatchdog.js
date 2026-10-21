@@ -19,7 +19,7 @@ function beaconUrl(route, step, extra) {
     v: "1",
     r: route,
     s: step,
-    e: String(extra).slice(0, 400),
+    e: String(extra).slice(0, 1200),
     t: String(Date.now())
   });
   return `${globalThis.location.origin}/__dbg_nav?${query}`;
@@ -40,6 +40,32 @@ function snapshot(getRoute) {
     `vw=${globalThis.innerWidth}x${globalThis.innerHeight}`,
     `hidden=${document.hidden}`
   ].join(" ");
+}
+
+// Where a freeze left its nodes: follow the heaviest child down from the
+// screen, then name what the last container holds most of.
+function heaviestPath(getRoute) {
+  const label = (node) =>
+    node.dataset?.rowKey || node.id || String(node.className || node.tagName).slice(0, 28);
+  const weight = (node) => node.getElementsByTagName("*").length;
+  const path = [];
+  let node = document.getElementById(getRoute());
+  for (let depth = 0; node && depth < 10; depth += 1) {
+    path.push(`${label(node)}(${weight(node)})`);
+    const next = [...node.children].reduce((a, b) => (a && weight(a) >= weight(b) ? a : b), null);
+    if (!next || weight(next) < weight(node) * 0.6) break;
+    node = next;
+  }
+  const kinds = {};
+  for (const child of node?.children || []) {
+    const kind = String(child.className || child.tagName).split(" ")[0];
+    kinds[kind] = (kinds[kind] || 0) + 1;
+  }
+  const top = Object.entries(kinds)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([kind, count]) => `${kind}x${count}`);
+  return `heavy=${path.join(">")} holds=${top.join(",")}`;
 }
 
 const WORKER_SOURCE = `
@@ -70,9 +96,16 @@ export function installFreezeWatchdog({ getRoute = () => "" } = {}) {
   setInterval(() => {
     const now = Date.now();
     const context = snapshot(getRoute);
+    const gap = now - lastBeat;
+    let recovered = `gap=${gap} ${context}`;
+    if (gap >= FREEZE_MS) {
+      try {
+        recovered += ` ${heaviestPath(getRoute)}`;
+      } catch {}
+    }
     worker.postMessage({
       freezeUrl: beaconUrl(getRoute(), "freeze", context),
-      recoveredUrl: beaconUrl(getRoute(), "recovered", `gap=${now - lastBeat} ${context}`)
+      recoveredUrl: beaconUrl(getRoute(), "recovered", recovered)
     });
     lastBeat = now;
   }, HEARTBEAT_MS);
