@@ -282,8 +282,13 @@ export function handleBrowserControlKey(event, screen) {
   }
   if (control.matches('[role="slider"]')) return false;
   // Skip Intro takes focus by itself (TV style: OK = skip), so on desktop Space
-  // must still mean play/pause there; Enter and clicks keep skipping.
-  if (event.key === " " && control.matches(".player-skip-intro-btn")) return false;
+  // and the arrows must still play/pause and seek there; Enter and clicks keep
+  // skipping.
+  if (
+    [" ", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) &&
+    control.matches(".player-skip-intro-btn")
+  )
+    return false;
   if (event.key === "Enter" || event.key === " ") {
     if (control.matches(':disabled, [aria-disabled="true"]')) {
       event.preventDefault();
