@@ -1258,9 +1258,9 @@ function maskValue(value, fallback) {
     return fallback;
   }
   if (trimmed.length <= 4) {
-    return "â€¢â€¢â€¢â€¢";
+    return "••••";
   }
-  return `â€¢â€¢â€¢â€¢â€¢â€¢${trimmed.slice(-4)}`;
+  return `••••••${trimmed.slice(-4)}`;
 }
 
 function labelForFont(fontFamily) {
@@ -3583,7 +3583,7 @@ export const SettingsScreen = {
     }
     if (state.status === "starting") {
       return `<div class="settings-debrid-auth-loading">${renderLoadingIndicator({ size: "small" })}<span>${escapeHtml(
-        t("debrid_device_auth_starting", {}, `Starting ${state.provider.displayName} sign-inâ€¦`)
+        t("debrid_device_auth_starting", {}, `Starting ${state.provider.displayName} sign-in…`)
       )}</span></div>`;
     }
     if (state.status === "waiting" && state.session) {
@@ -3613,7 +3613,7 @@ export const SettingsScreen = {
             )}</button>
           </div>
           <div class="settings-debrid-auth-status">${renderLoadingIndicator({ size: "small" })}<span>${escapeHtml(
-            t("debrid_device_auth_waiting", {}, "Waiting for authorizationâ€¦")
+            t("debrid_device_auth_waiting", {}, "Waiting for authorization…")
           )}</span></div>
         </div>`;
     }
@@ -4246,7 +4246,7 @@ export const SettingsScreen = {
         ? t(
             "advanced_clear_artwork_cache_subtitle",
             { count: entries, size: kilobytes },
-            `Remembered artwork for ${entries} titles Â· ${kilobytes} KB`
+            `Remembered artwork for ${entries} titles · ${kilobytes} KB`
           )
         : t("advanced_clear_artwork_cache_empty", {}, "Nothing remembered yet");
     return this.renderActionRow({
@@ -4515,7 +4515,7 @@ export const SettingsScreen = {
           }
           const details = catalogDetails.get(key);
           const label = catalogSettings.customTitles?.[key] || details?.label || key;
-          const secondary = [details?.typeLabel, details?.addonName].filter(Boolean).join(" Â· ");
+          const secondary = [details?.typeLabel, details?.addonName].filter(Boolean).join(" · ");
           return {
             id: key,
             label,
@@ -9039,7 +9039,7 @@ export const SettingsScreen = {
       return "";
     }
     if (state.loading) {
-      return `<section class="settings-about-community-group"><h3>${escapeHtml(title)}</h3><p class="settings-about-inline-status">Loadingâ€¦</p></section>`;
+      return `<section class="settings-about-community-group"><h3>${escapeHtml(title)}</h3><p class="settings-about-inline-status">Loading…</p></section>`;
     }
     if (kind === "contributors" && (state.error === "fallback" || !state.items?.length)) {
       const fallbackKey = "about:contributors:github";
@@ -9129,7 +9129,7 @@ export const SettingsScreen = {
       this.actionMap.set("about:licenses", () => Router.navigate("licensesAttributions"));
     }
     this.actionMap.set("about:checkUpdates", async () => {
-      this.aboutUpdateStatus = t("update_checking", {}, "Checking for updatesâ€¦");
+      this.aboutUpdateStatus = t("update_checking", {}, "Checking for updates…");
       await this.render({ refreshModel: false });
       try {
         const update = await getLatestAppUpdate({ currentVersion: CURRENT_APP_VERSION });
@@ -9316,7 +9316,7 @@ export const SettingsScreen = {
           focusKey: "downloads:syncOfflineProgress",
           title: "Sync offline progress (experimental)",
           subtitle:
-            "Experimental, and still has plenty of bugs. Off: watching a download records nothing at all â€” not your position, not that you finished it, and nothing reaches your account or tracking service. On: a download is treated like any other playback, and two devices can disagree about which position is newer. A tracking service is sent the position but not when you watched it, so an offline session arrives at Trakt or Simkl stamped with the time it got there; a finished title does carry its real time.",
+            "Experimental, and still has plenty of bugs. Off: watching a download records nothing at all — not your position, not that you finished it, and nothing reaches your account or tracking service. On: a download is treated like any other playback, and two devices can disagree about which position is newer. A tracking service is sent the position but not when you watched it, so an offline session arrives at Trakt or Simkl stamped with the time it got there; a finished title does carry its real time.",
           checked: Boolean(model.player?.syncOfflineProgress)
         })}
       </div></div>
@@ -9332,12 +9332,12 @@ export const SettingsScreen = {
       </div></div>
       <div class="settings-group-heading"><div class="settings-group-title">Library</div></div>
       <div class="settings-group-card"><div class="settings-stack settings-download-summary">
-        ${this.renderActionRow({ focusKey: "downloads:library", title: "Downloaded library", value: `${downloads.movies} Movies Â· ${downloads.series} Series Â· ${downloads.episodes} Episodes`, icon: null, disabled: true })}
+        ${this.renderActionRow({ focusKey: "downloads:library", title: "Downloaded library", value: `${downloads.movies} Movies · ${downloads.series} Series · ${downloads.episodes} Episodes`, icon: null, disabled: true })}
         ${this.renderActionRow({ focusKey: "downloads:subtitleCount", title: "Local subtitles", value: String(downloads.subtitles), icon: null, disabled: true })}
       </div></div>
       <div class="settings-group-heading"><div class="settings-group-title">Queue</div></div>
       <div class="settings-group-card"><div class="settings-stack settings-download-summary">
-        ${this.renderActionRow({ focusKey: "downloads:queue", title: "Download queue", value: `${count("downloading")} Downloading Â· ${count("queued")} Queued Â· ${count("paused") + count("interrupted")} Paused Â· ${count("failed")} Failed`, icon: null, disabled: true })}
+        ${this.renderActionRow({ focusKey: "downloads:queue", title: "Download queue", value: `${count("downloading")} Downloading · ${count("queued")} Queued · ${count("paused") + count("interrupted")} Paused · ${count("failed")} Failed`, icon: null, disabled: true })}
         ${this.renderActionRow({ focusKey: "downloads:manage", title: "Manage Downloads", subtitle: queueTotal ? "Open the Library Download Manager." : "No active downloads. Open Downloaded.", leadingIcon: "download" })}
       </div></div>
       <div class="settings-group-heading"><div class="settings-group-title">Cleanup</div></div>
