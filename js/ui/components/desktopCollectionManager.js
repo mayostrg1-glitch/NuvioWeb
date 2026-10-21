@@ -94,6 +94,10 @@ export function createDesktopCollectionManager({ requestRender } = {}) {
       return state.expanded;
     },
     render() {
+      // Read the store on every draw: a collection added or edited on its own
+      // route is otherwise missing here, and a reorder would save that stale
+      // list over the store, dropping it.
+      load();
       const rows = state.collections.length
         ? state.collections
             .map(

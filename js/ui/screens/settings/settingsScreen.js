@@ -10353,6 +10353,14 @@ export const SettingsScreen = {
     return true;
   },
 
+  // Back reveals this layer without mount(). A collection added or edited on
+  // its own route was missing from the open Collections list until a reload,
+  // and dragging that stale list saved it over the store.
+  onRouteRevealed() {
+    if (!this.container || !this.desktopCollectionExpanded) return;
+    void this.render({ refreshModel: false });
+  },
+
   cleanup() {
     this.persistUiState();
     this.unbindHeaderCollapse();
