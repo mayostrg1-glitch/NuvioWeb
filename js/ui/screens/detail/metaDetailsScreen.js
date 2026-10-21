@@ -1,5 +1,6 @@
 import { Router } from "../../navigation/router.js";
 import { ScreenUtils } from "../../navigation/screen.js";
+import { getSeasonPosters } from "./seasonPosters.js";
 import { isBrowserOfflineNow } from "../../../core/offline/browserOnlineState.js";
 import { subtitleReleaseName } from "../../../domain/model/subtitle.js";
 import { setBrowserMediaTitle } from "../../navigation/browserDocumentTitle.js";
@@ -288,6 +289,7 @@ function toEpisodeEntry(video = {}) {
     season,
     episode,
     thumbnail: video.thumbnail || null,
+    seasonPoster: video.seasonPoster || video.season_poster_path || null,
     overview: video.overview || video.description || "",
     runtimeMinutes,
     released:
@@ -3437,6 +3439,9 @@ export const MetaDetailsScreen = {
           : meta.description,
         background: settings.useArtwork ? enrichment.backdrop || meta.background : meta.background,
         poster: settings.useArtwork ? enrichment.poster || meta.poster : meta.poster,
+        seasonPosters: settings.useArtwork
+          ? { ...enrichment.seasonPosters, ...meta.seasonPosters }
+          : meta.seasonPosters,
         // The plates for the hero, which chooses between them by screen shape.
         // Also written to the shared cache, so Home opens this title correctly
         // the next time it comes round in the rotation.
@@ -5185,12 +5190,76 @@ export const MetaDetailsScreen = {
         ${this.renderSeasonDownloadAction()}
       `;
     }
+    // Season artwork (TMDB) can stand in for the dropdown as a poster rail;
+    // the toggle exists only when there is artwork to show.
+    const posters = getSeasonPosters(this.meta, this.episodes);
+    const showPosters = posters.size > 0 && LayoutPreferences.get().seasonViewMode !== "text";
+    const toggle = posters.size
+      ? `<button type="button" class="series-season-view-toggle focusable" data-action="toggleSeasonView"
+            aria-label="${escapeAttribute(showPosters ? "Show seasons as text" : "Show season posters")}">${showPosters ? "Posters" : "Text"}</button>`
+      : "";
+    if (showPosters) {
+      return `
+        <div class="series-season-controls">
+          ${toggle}
+          ${this.renderSeasonDownloadAction()}
+        </div>
+        <div class="series-season-row series-season-poster-row" data-scroll-key="season-tabs">${this.renderSeasonPosterButtons(posters)}</div>
+      `;
+    }
     return `
       <div class="series-season-controls">
         ${this.renderSeasonPicker()}
+        ${toggle}
         ${this.renderSeasonDownloadAction()}
       </div>
     `;
+  },
+
+  renderSeasonPosterButtons(posters) {
+    return this.getAvailableSeasons()
+      .map((season) => {
+        const selected = season === this.selectedSeason;
+        const label = this.getSeasonLabel(season);
+        const art = posters.has(season)
+          ? `<img src="${escapeAttribute(posters.get(season))}" alt="" loading="lazy" decoding="async">`
+          : "";
+        return `
+      <button type="button" class="series-season-btn series-season-poster-btn focusable${selected ? " selected" : ""}"
+              data-action="selectSeason" data-season="${season}" aria-pressed="${selected}">
+        <span class="series-season-artwork" aria-hidden="true"><span>${season === 0 ? escapeHtml(label) : season}</span>${art}</span>
+        <span class="series-season-label">${escapeHtml(label)}</span>
+      </button>`;
+      })
+      .join("");
+  },
+
+  toggleSeasonView() {
+    const seasonViewMode = LayoutPreferences.get().seasonViewMode === "text" ? "posters" : "text";
+    LayoutPreferences.set({ seasonViewMode }, { silentSync: true });
+    this.seasonPickerOpen = false;
+    const mount = this.container?.querySelector("#detailSeasonRowMount");
+    if (!mount) return;
+    mount.innerHTML = this.renderSeasonControls();
+    ScreenUtils.indexFocusables(this.container);
+    mount.querySelector("[data-action='toggleSeasonView']")?.focus({ preventScroll: true });
+  },
+
+  // Choosing on the poster rail moves the selection in place, like the
+  // dropdown does, so the page and the rail keep their scroll.
+  refreshSeasonPosterSelection() {
+    const row = this.container?.querySelector(".series-season-poster-row");
+    const controls = this.container?.querySelector("#detailSeasonRowMount .series-season-controls");
+    if (!row || !controls) return false;
+    row.querySelectorAll(".series-season-poster-btn").forEach((button) => {
+      const selected = Number(button.dataset.season) === this.selectedSeason;
+      button.classList.toggle("selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+    controls.querySelector(".series-season-download-row")?.remove();
+    const downloadMarkup = this.renderSeasonDownloadAction();
+    if (downloadMarkup) controls.insertAdjacentHTML("beforeend", downloadMarkup);
+    return this.refreshEpisodeTrack();
   },
 
   getSeasonLabel(season) {
@@ -8853,6 +8922,23 @@ export const MetaDetailsScreen = {
         }
         return;
       }
+      if (target.closest("[data-action='toggleSeasonView']")) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.toggleSeasonView();
+        return;
+      }
+      const posterButton = target.closest(".series-season-poster-btn[data-action='selectSeason']");
+      if (posterButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        const season = Number(posterButton.dataset.season);
+        if (!Number.isFinite(season) || season === this.selectedSeason) return;
+        this.hasManualSeasonSelection = true;
+        this.selectedSeason = season;
+        if (!this.refreshSeasonPosterSelection()) this.render(this.meta);
+        return;
+      }
       const anchor = target.closest("[data-action='toggleSeasonPicker']");
       if (anchor) {
         event.preventDefault();
@@ -8868,6 +8954,11 @@ export const MetaDetailsScreen = {
       }
     };
     this.container.addEventListener("click", this.boundSeasonPickerHandler, true);
+    // A season poster that fails to load leaves the numbered tile behind it.
+    this.boundSeasonArtworkErrorHandler = (event) => {
+      if (event.target?.matches?.(".series-season-artwork img")) event.target.remove();
+    };
+    this.container.addEventListener("error", this.boundSeasonArtworkErrorHandler, true);
     this.boundDesktopLibraryPointerDownHandler = (event) => {
       if (event.pointerType !== "mouse" || Number(event.button) !== 0) {
         return;
@@ -12794,6 +12885,8 @@ export const MetaDetailsScreen = {
       this.boundDesktopDetailActionHandler = null;
       this.container.removeEventListener("click", this.boundSeasonPickerHandler, true);
       this.boundSeasonPickerHandler = null;
+      this.container.removeEventListener("error", this.boundSeasonArtworkErrorHandler, true);
+      this.boundSeasonArtworkErrorHandler = null;
       this.seasonPickerOpen = false;
     }
     if (this.heroDescriptionResizeHandler) {

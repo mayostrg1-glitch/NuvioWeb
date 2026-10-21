@@ -6106,6 +6106,27 @@ html.desktop-browser {
   padding: 0;
 }
 
+/* The poster/text toggle sits with the season control, shaped like it;
+   Download keeps the far end. */
+.desktop-browser #detail .series-season-controls .series-season-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  margin-right: auto;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--detail-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.desktop-browser #detail .series-season-controls .series-season-view-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .desktop-browser #detail .series-season-select-shell {
   position: relative;
   display: inline-flex;
