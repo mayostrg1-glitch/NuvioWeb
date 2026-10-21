@@ -73,8 +73,6 @@ const REPORTED = [
 
 // Everything else still unanswered, as of this test being written.
 const KNOWN_GAPS = [
-  "account_signin_qr_subtitle_desktop",
-  "account_signin_title",
   "cast_detail_empty",
   "common.copied",
   "common.disabled",
