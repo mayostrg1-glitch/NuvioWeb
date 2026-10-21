@@ -26,6 +26,7 @@ import { installExternalPlaybackReturnCoordinator } from "./ui/components/browse
 import { markContinueWatchingStale } from "./ui/screens/home/continueWatchingStaleSignal.js";
 import { watchBrowserInstallAvailability } from "./ui/components/browserInstallPrompt.js";
 import { installBrowserFocusModality } from "./ui/navigation/browserFocusModality.js";
+import { installFreezeWatchdog } from "./core/diagnostics/freezeWatchdog.js";
 import { applyDeviceLayout, installDeviceLayoutWatcher } from "./ui/navigation/deviceLayout.js";
 import { installWatchProgressReconnectSync } from "./core/profile/watchProgressReconnect.js";
 import { dispatchOutplayerExplicitFinish } from "./ui/components/browserOutplayerFinishDispatch.js";
@@ -76,6 +77,7 @@ if (
 if (Platform.isBrowser()) {
   watchBrowserInstallAvailability();
   installBrowserFocusModality();
+  installFreezeWatchdog({ getRoute: () => Router.current || "" });
 }
 
 function markBootStage(stage) {
