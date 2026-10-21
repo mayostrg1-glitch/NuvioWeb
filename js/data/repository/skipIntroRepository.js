@@ -80,7 +80,14 @@ export const skipIntroRepository = {
       return CACHE.get(cacheKey);
     }
 
-    const url = new URL("segments", baseUrl);
+    // A same-origin path (the playback bridge's IntroDB relay) is as valid a
+    // base as a full URL; resolve it against the page.
+    let url;
+    try {
+      url = new URL("segments", new URL(baseUrl, globalThis.location?.href || undefined));
+    } catch (_) {
+      return [];
+    }
     url.searchParams.set("imdb_id", normalizedImdbId);
     url.searchParams.set("season", String(seasonNumber));
     url.searchParams.set("episode", String(episodeNumber));

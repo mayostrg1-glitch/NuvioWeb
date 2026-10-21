@@ -476,6 +476,44 @@ export async function createPlaybackBridge({
     }
   }
 
+  // IntroDB answers every browser with `Access-Control-Allow-Origin:
+  // https://introdb.app`, so skip-intro could never load on the web. The same
+  // request from here carries no Origin and is answered normally.
+  const introdbCache = new Map();
+  async function introdbSegments(req, res) {
+    const params = new URL(req.url, "http://local").searchParams;
+    const imdbId = params.get("imdb_id") || "";
+    const season = params.get("season") || "";
+    const episode = params.get("episode") || "";
+    if (!/^tt\d{1,12}$/.test(imdbId) || !/^\d{1,4}$/.test(season) || !/^\d{1,5}$/.test(episode))
+      throw failure(400, "Invalid episode.");
+    const key = `${imdbId}:${season}:${episode}`;
+    const cached = introdbCache.get(key);
+    if (cached && Date.now() - cached.at < 6 * 60 * 60 * 1000) {
+      json(res, 200, cached.data);
+      return;
+    }
+    let data = {};
+    let answered = false;
+    try {
+      const upstream = await fetch(
+        `https://api.introdb.app/segments?imdb_id=${imdbId}&season=${season}&episode=${episode}`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      // 404 is IntroDB's "no segments for this episode": a real answer, cacheable.
+      if (upstream.ok) data = await upstream.json();
+      answered = upstream.ok || upstream.status === 404;
+    } catch {
+      // No segments is the same answer the player gets for an unknown episode;
+      // not cached, so a passing outage does not stick for hours.
+    }
+    if (answered) {
+      if (introdbCache.size >= 2000) introdbCache.delete(introdbCache.keys().next().value);
+      introdbCache.set(key, { at: Date.now(), data });
+    }
+    json(res, 200, data);
+  }
+
   async function body(req) {
     let text = "";
     for await (const chunk of req) {
@@ -501,6 +539,10 @@ export async function createPlaybackBridge({
           maxSessions: MAX_SESSIONS,
           mode: "copy-video-aac-audio"
         });
+        return;
+      }
+      if (path === "/api/playback/introdb/segments" && req.method === "GET") {
+        await introdbSegments(req, res);
         return;
       }
       const match =

@@ -323,3 +323,39 @@ test("the bridge requires account authentication and same-origin writes before r
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("IntroDB relay validates the episode, forwards it, and caches the answer", async (t) => {
+  const realFetch = globalThis.fetch;
+  const upstream = [];
+  t.mock.method(globalThis, "fetch", async (input, init) => {
+    const target = String(input);
+    if (!target.startsWith("https://api.introdb.app/")) return realFetch(input, init);
+    upstream.push(target);
+    return new Response(JSON.stringify({ intro: { start_sec: 5, end_sec: 60 } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  });
+  const root = await mkdtemp(join(tmpdir(), "nuvio-introdb-test-"));
+  const bridge = await createPlaybackBridge({
+    root,
+    origin: "https://nuvioweb.space",
+    authenticate: async () => null
+  });
+  await new Promise((resolve) => bridge.server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${bridge.server.address().port}/api/playback/introdb/segments`;
+  try {
+    assert.equal((await realFetch(`${base}?imdb_id=nope&season=1&episode=1`)).status, 400);
+    assert.equal((await realFetch(`${base}?imdb_id=tt1&season=1&episode=x`)).status, 400);
+    const first = await realFetch(`${base}?imdb_id=tt31510819&season=1&episode=2`);
+    assert.equal(first.status, 200);
+    assert.deepEqual(await first.json(), { intro: { start_sec: 5, end_sec: 60 } });
+    await realFetch(`${base}?imdb_id=tt31510819&season=1&episode=2`);
+    assert.deepEqual(upstream, [
+      "https://api.introdb.app/segments?imdb_id=tt31510819&season=1&episode=2"
+    ]);
+  } finally {
+    await bridge.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
