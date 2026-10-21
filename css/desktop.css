@@ -13413,10 +13413,12 @@ body.desktop-browser {
 
 /* Catalog See All keeps its route-specific keyboard model, but browser cards
    share the Library grid's responsive density and pointer treatment. */
+/* The shell is the scroller: paging, scroll restore and focus scrolling all
+   read it. Grown to its content, it never scrolled and the next page never
+   loaded under a mouse wheel or touchpad. */
 .desktop-browser #catalogSeeAll .seeall-shell {
   width: 100%;
-  min-height: 100vh;
-  height: auto;
+  height: 100%;
   padding: 32px var(--browser-page-gutter) 56px;
 }
 
