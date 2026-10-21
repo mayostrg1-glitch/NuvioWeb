@@ -2081,8 +2081,10 @@ export const ProfileSelectionScreen = {
           danger: true,
           onAction: () => {
             const id = this.deleteProfileId;
-            this._deleteDialog = null;
-            this.deleteProfileId = null;
+            // Dropping the reference without destroy() left the dialog, and
+            // the editor of the profile it deleted, open on screen.
+            this._destroyDialogs();
+            if (String(this.editorState?.profileId ?? "") === id) this.editorState = null;
             this.deleteProfile(id);
           }
         }
