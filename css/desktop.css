@@ -18740,13 +18740,16 @@ html[data-nav-placement="bottom"].desktop-browser .desktop-navigation-item {
     .desktop-navigation-item {
     width: 64px;
     min-width: 64px;
-    height: 52px;
+    /* 7 + 32px icon slot (desktop-theme.css) + 3 + 12px label + 6. At 52px
+       the label was squeezed to 4px and showed as a cut line of text. */
+    height: 60px;
     padding: 7px 10px 6px;
     gap: 3px;
   }
 
   html[data-nav-placement="bottom"].desktop-browser:not(.nav-bottom-collapsed)
     .desktop-navigation-label {
+    flex-shrink: 0;
     max-height: 12px;
     opacity: 1;
     transform: translateY(0);
