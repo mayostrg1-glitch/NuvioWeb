@@ -194,8 +194,12 @@ export const ThemeManager = {
     // floating navigation sits over -- carry no page content of their own. Give
     // them the tint the pages start with instead of the bare background, so they
     // stop reading as black bands above and below the app.
-    const canvasColor = mixHexColors(colors["--bg-color"], colors["--secondary-color"], 0.1);
+    // AMOLED promises pure black, so it keeps the bare background instead.
+    const canvasColor = theme.amoledMode
+      ? colors["--bg-color"]
+      : mixHexColors(colors["--bg-color"], colors["--secondary-color"], 0.1);
     document.documentElement.style.setProperty("--app-canvas-color", canvasColor);
+    document.documentElement.classList.toggle("theme-amoled", Boolean(theme.amoledMode));
 
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta && canvasColor) {

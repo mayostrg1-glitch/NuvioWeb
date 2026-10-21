@@ -15658,6 +15658,34 @@ html:not([data-nav-placement="top"])
   ) !important;
 }
 
+/* AMOLED promises pure black backgrounds: no accent wash behind any route. */
+:root.theme-amoled .desktop-browser #library,
+:root.theme-amoled .desktop-browser #search,
+:root.theme-amoled .desktop-browser #discover,
+:root.theme-amoled .desktop-browser #settings,
+:root.theme-amoled .desktop-browser #settingsSection,
+:root.theme-amoled .desktop-browser #account,
+:root.theme-amoled .desktop-browser #castDetail,
+:root.theme-amoled .desktop-browser #stream,
+:root.theme-amoled .desktop-browser #catalogSeeAll,
+:root.theme-amoled .desktop-browser #catalogOrder,
+:root.theme-amoled .desktop-browser #plugins,
+:root.theme-amoled .desktop-browser #plugin,
+:root.theme-amoled .desktop-browser #trakt,
+:root.theme-amoled .desktop-browser #supportersContributors,
+:root.theme-amoled .desktop-browser #licensesAttributions,
+:root.theme-amoled .desktop-browser #debugConsole,
+:root.theme-amoled .desktop-browser #home:has(.home-hero-disabled),
+:root.theme-amoled .desktop-browser #home:has(.home-offline-shell) {
+  background-image: none !important;
+}
+
+:root.theme-amoled .desktop-browser .profile-screen,
+:root.theme-amoled .desktop-browser #castDetail .browser-person-detail-shell,
+:root.theme-amoled .cast-detail-shell {
+  background: var(--bg-color);
+}
+
 /* The shells inside paint the flat colour over the top, so on a heroless Home
    they step aside the way Library's and Search's do. */
 .desktop-browser #home:has(.home-hero-disabled) .home-screen-shell,
