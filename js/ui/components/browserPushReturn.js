@@ -7,6 +7,22 @@ function supported(runtime = globalThis) {
   );
 }
 
+// serviceWorker.ready never settles when no worker gets registered (localhost,
+// a browser that refuses workers in private mode, a failed install). Awaited
+// bare, it froze Quick Setup's mount forever -- the app sat on a blank screen.
+// Waiting a few seconds and then treating push as unavailable is the honest answer.
+const SERVICE_WORKER_READY_TIMEOUT_MS = 4000;
+
+function serviceWorkerReady(runtime, timeoutMs = SERVICE_WORKER_READY_TIMEOUT_MS) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Service worker did not become ready")), timeoutMs);
+  });
+  return Promise.race([runtime.navigator.serviceWorker.ready, timeout]).finally(() =>
+    clearTimeout(timer)
+  );
+}
+
 export function decodeVapidPublicKey(value) {
   const base64 = String(value || "")
     .replace(/-/g, "+")
@@ -17,7 +33,8 @@ export function decodeVapidPublicKey(value) {
 
 export async function getBrowserPushReturnState({
   runtime = globalThis,
-  fetchImpl = runtime.fetch
+  fetchImpl = runtime.fetch,
+  readyTimeoutMs = SERVICE_WORKER_READY_TIMEOUT_MS
 } = {}) {
   if (!supported(runtime)) return { state: "unavailable" };
   let config;
@@ -32,7 +49,7 @@ export async function getBrowserPushReturnState({
   if (runtime.Notification.permission === "denied")
     return { state: "blocked", publicKey: config.publicKey, episodes: Boolean(config.episodes) };
   try {
-    const registration = await runtime.navigator.serviceWorker.ready;
+    const registration = await serviceWorkerReady(runtime, readyTimeoutMs);
     const subscription = await registration.pushManager.getSubscription();
     const optedIn = runtime.localStorage?.getItem("browserPushReturnEnabled");
     const enabled =
@@ -84,7 +101,7 @@ export async function enableBrowserPushReturn({
 
 export async function disableBrowserPushReturn({ runtime = globalThis } = {}) {
   if (!supported(runtime)) return { state: "unavailable" };
-  const registration = await runtime.navigator.serviceWorker.ready;
+  const registration = await serviceWorkerReady(runtime);
   const subscription = await registration.pushManager.getSubscription();
   runtime.localStorage?.setItem("browserPushReturnEnabled", "false");
   let episodesEnabled = false;
@@ -110,7 +127,7 @@ export async function bindBrowserPushReturn({
     return false;
   if (!token || !supported(runtime) || typeof fetchImpl !== "function") return false;
   try {
-    const registration = await runtime.navigator.serviceWorker.ready;
+    const registration = await serviceWorkerReady(runtime);
     const subscription = await registration.pushManager.getSubscription();
     if (!subscription) return false;
     const response = await fetchImpl("/api/external-return/push/bind", {

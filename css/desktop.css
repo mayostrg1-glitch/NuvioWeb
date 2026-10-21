@@ -7168,7 +7168,7 @@ html.desktop-browser {
   border: 2px solid var(--bg-color);
   border-radius: 50%;
   background: var(--secondary-color);
-  color: #fff;
+  color: var(--on-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -17191,7 +17191,7 @@ html:not([data-nav-placement="top"])
   border: 0;
   border-radius: 999px;
   background: var(--secondary-color);
-  color: #fff;
+  color: var(--on-secondary);
   cursor: pointer;
   font: inherit;
   font-size: 15px;
@@ -17259,7 +17259,7 @@ html:not([data-nav-placement="top"])
   border: 0;
   border-radius: 999px;
   background: var(--secondary-color);
-  color: #fff;
+  color: var(--on-secondary);
   cursor: pointer;
   font: inherit;
   font-size: 14px;
@@ -17296,7 +17296,7 @@ html:not([data-nav-placement="top"])
   border: 0;
   border-radius: 999px;
   background: var(--secondary-color);
-  color: #fff;
+  color: var(--on-secondary);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -17402,7 +17402,7 @@ html:not([data-nav-placement="top"])
   border: 0;
   border-radius: 999px;
   background: var(--secondary-color);
-  color: #fff;
+  color: var(--on-secondary);
   cursor: pointer;
   font: inherit;
   font-size: 15px;

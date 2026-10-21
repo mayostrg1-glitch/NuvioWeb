@@ -13,6 +13,19 @@ test("Push return is unavailable without standards support and decodes VAPID bas
   assert.deepEqual([...decodeVapidPublicKey("AQID")], [1, 2, 3]);
 });
 
+test("a service worker that never becomes ready reads as unavailable instead of hanging", async () => {
+  const runtime = {
+    isSecureContext: true,
+    PushManager: function () {},
+    Notification: { permission: "default" },
+    navigator: { serviceWorker: { ready: new Promise(() => {}) } }
+  };
+  const fetchImpl = async () => ({ json: async () => ({ enabled: true, publicKey: "AQID" }) });
+  assert.deepEqual(await getBrowserPushReturnState({ runtime, fetchImpl, readyTimeoutMs: 10 }), {
+    state: "unavailable"
+  });
+});
+
 test("push binding sends subscription only in the same-origin POST body", async () => {
   const requests = [];
   const runtime = {

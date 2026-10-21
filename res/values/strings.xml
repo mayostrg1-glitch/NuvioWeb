@@ -496,6 +496,9 @@
     <string name="settings_nav_placement_top">Floating top</string>
     <string name="settings_nav_placement_bottom">Bottom bar</string>
     <string name="settings_nav_placement_sidebar">Side rail</string>
+    <string name="settings_nav_style_top">Top bar</string>
+    <string name="settings_nav_style_bottom">Bottom bar</string>
+    <string name="settings_nav_style_rail">Side rail</string>
     <string name="settings_nav_rail_corner_title">Rail corner</string>
     <string name="settings_nav_rail_corner_subtitle">Where the button that opens the rail sits. Top left is left free for Back.</string>
     <string name="settings_nav_rail_corner_top_right">Top right</string>
@@ -1821,6 +1824,9 @@
     <string name="account_sync_restart_note">Sync is not real-time across active devices. Restart this device after signing in or to pick up changes made elsewhere.</string>
     <string name="account_signin_qr_title">Sign In with QR</string>
     <string name="account_signin_qr_subtitle">Scan a QR code and complete email login on your phone</string>
+    <string name="account_signin_title">Sign In</string>
+    <string name="account_signin_subtitle">Sign in with your email and password</string>
+    <string name="account_signin_qr_subtitle_desktop">Use another device to approve sign-in</string>
     <string name="account_signed_in_label">Signed in</string>
     <string name="account_total_label">Total</string>
     <string name="account_loading_sync">Loading sync data\u2026</string>

@@ -1098,22 +1098,44 @@ export const Router = {
       // showing (settings appeared dead). Run the mount, and only treat the
       // transition itself as cosmetic.
       let mounted = false;
-      const run = () => {
+      let mountError = null;
+      const run = async () => {
         mounted = true;
-        return mountScreen();
+        try {
+          await mountScreen();
+        } catch (error) {
+          // Kept for the caller: a screen that failed to mount must not be
+          // reported as a broken transition and then forgotten.
+          mountError = error;
+        }
       };
+      // Chrome freezes the page on the old snapshot while the callback runs,
+      // for up to four seconds before aborting. A screen that waits on the
+      // network would sit frozen with no spinner, so a slow mount gives up the
+      // cross-fade and lets the page paint again.
+      let slowMountTimer = null;
       try {
-        await document.startViewTransition(run).updateCallbackDone.catch(() => {
+        const transition = document.startViewTransition(run);
+        // An aborted or skipped transition rejects these; left unhandled they
+        // surface as page errors even though navigation went on fine.
+        transition.ready?.catch?.(() => {});
+        transition.finished?.catch?.(() => {});
+        slowMountTimer = setTimeout(() => transition.skipTransition?.(), 350);
+        await transition.updateCallbackDone.catch(() => {
           Router.viewTransitionsBroken = true;
         });
       } catch {
         // startViewTransition itself threw: no transition ever ran.
         Router.viewTransitionsBroken = true;
+      } finally {
+        clearTimeout(slowMountTimer);
       }
       if (!mounted) {
         // The callback was never invoked (transition aborted first): mount
         // directly so navigation still completes.
         await mountScreen();
+      } else if (mountError) {
+        throw mountError;
       }
     } else {
       await mountScreen();
