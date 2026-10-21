@@ -6875,9 +6875,13 @@ export const HomeScreen = {
     const root = this.homeTruncationScope || this.container;
     this.homeTruncationScope = null;
     this.applyModernHeroDescriptionBounds(root);
-    const truncationSelector = this.isPerformanceConstrained()
-      ? ".home-hero-description"
-      : ".home-hero-description, .home-poster-title, .home-poster-subtitle";
+    // Poster titles and subtitles are one nowrap line, which CSS ellipsis cuts
+    // without touching layout. Fitting them here costs a forced reflow per
+    // card: a 300-row Home in a browser froze for 30-40s inside this pass.
+    const truncationSelector =
+      this.isPerformanceConstrained() || Platform.isBrowser()
+        ? ".home-hero-description"
+        : ".home-hero-description, .home-poster-title, .home-poster-subtitle";
     const nodes = root.querySelectorAll(truncationSelector);
     nodes.forEach((node) => {
       if (!(node instanceof HTMLElement)) {

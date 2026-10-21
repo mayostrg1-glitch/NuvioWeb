@@ -17657,7 +17657,9 @@ html[data-card-depth="true"][data-card-depth-trailers="true"] .detail-trailer-ca
 }
 
 .performance-constrained .home-screen-shell .home-poster-title,
-.performance-constrained .home-screen-shell .home-poster-subtitle {
+.performance-constrained .home-screen-shell .home-poster-subtitle,
+.desktop-browser .home-screen-shell .home-poster-title,
+.desktop-browser .home-screen-shell .home-poster-subtitle {
   text-overflow: ellipsis;
 }
 
