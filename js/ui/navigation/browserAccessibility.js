@@ -137,8 +137,11 @@ export function initBrowserAccessibility() {
   let opener = null;
   let background = [];
   const releaseBackground = () => {
+    // Only undo our own change. The router un-inerts a layered screen's parent
+    // when the layer closes, possibly while this dialog was still open; putting
+    // back the snapshot taken earlier would freeze that screen again.
     background.forEach(([node, inert]) => {
-      node.inert = inert;
+      if (node.inert) node.inert = inert;
     });
     background = [];
   };
@@ -197,7 +200,11 @@ export function initBrowserAccessibility() {
         }
         if (modal && !modal.isConnected) dialogsChanged = true;
       } else {
-        if (record.target.matches(DIALOGS)) dialogsChanged = true;
+        // Screens hide with an inline display:none on their container, which
+        // never touches the dialog itself. Without the ancestor check, leaving
+        // the player on its error dialog kept every other screen inert.
+        if (record.target.matches(DIALOGS) || (modal && record.target.contains(modal)))
+          dialogsChanged = true;
         if (record.attributeName === "class" && record.target.matches(CHOICES))
           syncChoice(record.target);
       }
@@ -218,7 +225,7 @@ export function initBrowserAccessibility() {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ["class", "hidden", "aria-hidden"]
+    attributeFilter: ["class", "hidden", "aria-hidden", "style"]
   });
   document.addEventListener(
     "focusin",
