@@ -191,6 +191,12 @@ test("probes distinguish unsupported video, missing audio and convertible audio"
   assert.equal(compatibleProbe(data).tracks[0].codec, "eac3");
   assert.throws(() => compatibleProbe({ ...data, streams: [data.streams[0]] }), /no audio track/);
   assert.throws(() => compatibleProbe({ ...data, format: { duration: "Infinity" } }), /four hours/);
+  const remux = { ...data, format: { duration: "60", bit_rate: "100000000" } };
+  assert.equal(compatibleProbe(remux).videoCodec, "h264");
+  assert.throws(
+    () => compatibleProbe({ ...data, format: { duration: "60", bit_rate: "200000000" } }),
+    /too large for compatibility/
+  );
   assert.throws(
     () =>
       compatibleProbe({

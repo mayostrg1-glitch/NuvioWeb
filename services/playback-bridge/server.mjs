@@ -21,6 +21,9 @@ export { selectAudioTrack } from "./tracks.mjs";
 const MAX_SESSIONS = 2;
 const IDLE_MS = 90_000;
 const MAX_AGE_MS = 4 * 3600_000;
+// Video is copied, not re-encoded, so bitrate costs bandwidth, not CPU. UHD
+// Blu-ray remuxes peak near 128 Mbps.
+const MAX_BITRATE = (Number(process.env.PLAYBACK_MAX_BITRATE_MBPS) || 150) * 1_000_000;
 const inputArgs = [
   "-protocol_whitelist",
   "http,tcp",
@@ -48,7 +51,7 @@ export function compatibleProbe(data) {
     throw failure(422, "Choose a movie or episode shorter than four hours.");
   if (!video || !["h264", "hevc"].includes(video.codec_name))
     throw failure(422, "This source needs video conversion. Choose an H.264 source instead.");
-  if (Number(data.format?.bit_rate) > 60_000_000)
+  if (Number(data.format?.bit_rate) > MAX_BITRATE)
     throw failure(
       422,
       "This source is too large for compatibility playback. Choose a smaller source."
