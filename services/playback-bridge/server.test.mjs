@@ -79,7 +79,7 @@ test("source refusals and file limits retain useful errors without exposing the 
   t.mock.method(https, "get", (_url, _options, respond) => {
     const response = new PassThrough();
     response.statusCode = statusCode;
-    response.headers = { "content-length": String(26 * 1024 ** 3) };
+    response.headers = { "content-length": String(201 * 1024 ** 3) };
     queueMicrotask(() => {
       respond(response);
       response.end();
@@ -107,7 +107,7 @@ test("source refusals and file limits retain useful errors without exposing the 
   statusCode = 200;
   await assert.rejects(openSource(url), {
     status: 422,
-    message: "This file exceeds the 25 GB conversion limit. Choose a smaller source."
+    message: "This file exceeds the 200 GB conversion limit. Choose a smaller source."
   });
 });
 

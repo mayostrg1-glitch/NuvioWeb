@@ -11,6 +11,11 @@ export class SourceReadError extends Error {
   }
 }
 
+// Conversion streams at playback speed and keeps only a few segments on disk,
+// so file size costs nothing extra; the cap only rejects implausible sizes.
+// UHD remuxes run 40-100 GB.
+const maxSourceGb = Number(process.env.PLAYBACK_MAX_SOURCE_GB) || 200;
+
 const blocked = new BlockList();
 for (const [ip, prefix] of [
   ["0.0.0.0", 8],
@@ -199,10 +204,10 @@ export async function openSource(value, headers = {}, redirects = 0) {
   const length = Number(
     response.headers["content-range"]?.split("/")[1] || response.headers["content-length"] || 0
   );
-  if (length > 25 * 1024 ** 3) {
+  if (length > maxSourceGb * 1024 ** 3) {
     response.destroy();
     throw new SourceReadError(
-      "This file exceeds the 25 GB conversion limit. Choose a smaller source."
+      `This file exceeds the ${maxSourceGb} GB conversion limit. Choose a smaller source.`
     );
   }
   return response;
