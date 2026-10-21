@@ -7,6 +7,7 @@ import { SyncCodeScreen } from "../screens/account/syncCodeScreen.js";
 import { ProfileSelectionScreen } from "../../core/profile/profileSelectionScreen.js";
 import { MetaDetailsScreen } from "../screens/detail/metaDetailsScreen.js";
 import { LibraryScreen } from "../screens/library/libraryScreen.js";
+import { CalendarScreen } from "../screens/calendar/calendarScreen.js";
 import { SearchScreen } from "../screens/search/searchScreen.js";
 import { DiscoverScreen } from "../screens/search/discoverScreen.js";
 import { SettingsScreen, SettingsSectionScreen } from "../screens/settings/settingsScreen.js";
@@ -73,6 +74,8 @@ function getBrowserPullRefreshHandler(routeName, screen) {
       return () => screen.reloadItems?.({ preserveExistingItems: true });
     case "library":
       return () => screen.controller?.refreshNow?.();
+    case "calendar":
+      return () => screen.loadLibrary?.(true);
     case "detail":
       return () =>
         screen.reloadDetailContent?.({ reason: "pull-to-refresh" }) || screen.loadDetail?.();
@@ -214,6 +217,7 @@ export const Router = {
     quickSetup: QuickSetupScreen,
     detail: MetaDetailsScreen,
     library: LibraryScreen,
+    calendar: CalendarScreen,
     search: SearchScreen,
     discover: DiscoverScreen,
     settings: SettingsScreen,
